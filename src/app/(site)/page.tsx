@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { ProductImage } from "@/components/site/ProductImage";
 import { categoryImagePublicPath, categoryImageSlug } from "@/lib/productCategory";
 
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
 
 async function categoryImageIfExists(name: string): Promise<string | null> {
   const filePath = path.join(process.cwd(), "public", "uploads", "categories", `${categoryImageSlug(name)}.png`);

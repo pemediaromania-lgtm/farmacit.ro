@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   description: "Produse farmaceutice și naturiste recomandate de Farmatic.ro.",
 };
 
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
 
 // Păstrează termenul de căutare curent când se schimbă filtrul de categorie, ca
 // să nu se piardă căutarea la un click pe o pastilă de grup/subcategorie.

@@ -1,6 +1,10 @@
 import type { MetadataRoute } from "next";
 import { prisma } from "@/lib/prisma";
 
+// Interoghează baza de date — nu poate fi generat static la build (mediul de
+// build Railway nu are acces la rețeaua privată internă către Postgres).
+export const dynamic = "force-dynamic";
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
 

@@ -6,7 +6,7 @@ import { ProductImage } from "@/components/site/ProductImage";
 import { submitReviewAction } from "@/lib/actions/reviewActions";
 import { descriptionHasHtml, sanitizeProductDescription, stripHtmlToText } from "@/lib/productDescription";
 
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
 
 const stars = (rating: number) => "★".repeat(rating) + "☆".repeat(5 - rating);
 

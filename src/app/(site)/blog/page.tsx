@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   description: "Articole despre produse farmaceutice și naturiste, scrise cu grijă pentru sănătatea ta.",
 };
 
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
 
 export default async function BlogPage() {
   const articles = await prisma.article.findMany({

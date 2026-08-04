@@ -6,7 +6,7 @@ import ReactMarkdown from "react-markdown";
 import { prisma } from "@/lib/prisma";
 import { ProductImage } from "@/components/site/ProductImage";
 
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
 
 async function getArticle(slug: string) {
   return prisma.article.findUnique({
