@@ -3,10 +3,10 @@ generator client {
 }
 
 datasource db {
-  // Dev implicit: SQLite (zero setup, file-based). Pentru Railway, schimbă la
-  // provider = "postgresql" și rulează `npx prisma migrate dev` o dată împotriva
-  // DATABASE_URL-ului Postgres de pe Railway (vezi README.md, secțiunea Deploy).
-  provider = "sqlite"
+  // Producție (Railway): postgresql. Dev local se face acum tot împotriva unui
+  // Postgres (vezi README.md, secțiunea Deploy) — migrațiile din acest folder
+  // sunt scrise pentru Postgres, nu mai sunt compatibile cu SQLite.
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
