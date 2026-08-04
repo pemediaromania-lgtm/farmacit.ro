@@ -1,0 +1,113 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  // Dev implicit: SQLite (zero setup, file-based). Pentru Railway, schimbă la
+  // provider = "postgresql" și rulează `npx prisma migrate dev` o dată împotriva
+  // DATABASE_URL-ului Postgres de pe Railway (vezi README.md, secțiunea Deploy).
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String        @id @default(cuid())
+  name         String
+  email        String        @unique
+  passwordHash String
+  role         String        @default("admin") // "admin" | "editor"
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  feeds        Feed[]
+  activityLogs ActivityLog[]
+}
+
+model Feed {
+  id             String    @id @default(cuid())
+  name           String
+  url            String
+  lastImportedAt DateTime?
+  lastStatus     String? // "success" | "error"
+  lastError      String?
+  createdById    String?
+  createdBy      User?     @relation(fields: [createdById], references: [id])
+  products       Product[]
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+model Product {
+  id           String    @id @default(cuid())
+  feedId       String?
+  feed         Feed?     @relation(fields: [feedId], references: [id])
+  externalId   String?
+  name         String
+  slug         String    @unique
+  description  String?
+  price        Float?
+  oldPrice     Float?
+  currency     String    @default("RON")
+  category     String? // subcategorie (specifică, ex: "Miere de Manuka")
+  categoryGroup String? // grupul de nivel superior sub care apare subcategoria (ex: "Suplimente și sănătate naturistă")
+  brand        String?
+  merchant     String? // magazinul partener (ex: "springfarma.com"), din feed-ul de afiliere
+  imageUrl     String?
+  gtin         String? // cod de bare (EAN/UPC), pentru date structurate SEO (schema.org Product)
+  affiliateUrl String?
+  type         String    @default("affiliate") // "affiliate" | "own" (rezervat pt. produse proprii pe viitor)
+  availability String?
+  isActive     Boolean   @default(true)
+  clickCount   Int       @default(0)
+  articles     Article[]
+  reviews      Review[]
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@unique([feedId, externalId])
+  @@index([category])
+  @@index([categoryGroup])
+}
+
+model Review {
+  id         String   @id @default(cuid())
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  authorName String
+  rating     Int // 1-5
+  content    String
+  createdAt  DateTime @default(now())
+
+  @@index([productId])
+}
+
+model Article {
+  id            String    @id @default(cuid())
+  productId     String?
+  product       Product?  @relation(fields: [productId], references: [id])
+  title         String
+  slug          String    @unique
+  content       String
+  excerpt       String?
+  coverImageUrl String?
+  status        String    @default("draft") // "draft" | "published"
+  generatedBy   String    @default("ai") // "ai" | "manual"
+  publishedAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([status])
+}
+
+model ActivityLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id])
+  action     String // ex: feed.created, feed.imported, product.created, product.updated, article.generated, article.published
+  entityType String?
+  entityId   String?
+  meta       String? // JSON serializat (detalii libere despre acțiune)
+  createdAt  DateTime @default(now())
+
+  @@index([action])
+  @@index([createdAt])
+}
