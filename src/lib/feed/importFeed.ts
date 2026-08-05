@@ -4,6 +4,9 @@ import { parse2performantFeed, type RawFeedProduct } from "@/lib/feed/parse2perf
 import { dedupeSlugSync } from "@/lib/slug";
 import { logActivity } from "@/lib/activityLog";
 import { classifyProduct } from "@/lib/productCategory";
+import { submitUrlsToIndexNow } from "@/lib/seo/indexNow";
+
+const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
 
 // Importul NU generează articole automat — un feed poate aduce zeci de mii de
 // produse noi dintr-o dată, iar generarea (Claude + DALL·E) costă bani per articol.
@@ -207,6 +210,10 @@ async function applyFeedItems(feedId: string, items: RawFeedProduct[]): Promise<
   for (let i = 0; i < toCreate.length; i += CREATE_BATCH_SIZE) {
     await prisma.product.createMany({ data: toCreate.slice(i, i + CREATE_BATCH_SIZE) });
   }
+
+  // Anunțăm IndexNow o singură dată, în bloc, pentru toate produsele noi din acest
+  // import — nu are rost un ping per produs când un feed poate aduce mii dintr-o dată.
+  await submitUrlsToIndexNow(toCreate.map((p) => `${baseUrl}/produse/${p.slug}`));
 
   for (let i = 0; i < updateOps.length; i += UPDATE_BATCH_SIZE) {
     const batch = updateOps.slice(i, i + UPDATE_BATCH_SIZE);

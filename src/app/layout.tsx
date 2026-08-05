@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Analytics } from "@/components/Analytics";
 import "./globals.css";
 
 const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
@@ -63,6 +64,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col bg-white text-[var(--foreground)]">
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }} />
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }} />
+        <Analytics />
         {children}
       </body>
     </html>

@@ -9,6 +9,9 @@ import { generateArticleForProduct, generateArticlesForArticlelessProducts } fro
 import { generateCategoryImage } from "@/lib/ai/generateCategoryImage";
 import { ALL_GROUPS } from "@/lib/productCategory";
 import { uniqueSlug } from "@/lib/slug";
+import { submitUrlToIndexNow } from "@/lib/seo/indexNow";
+
+const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
 
 /**
  * Toate acțiunile din acest fișier sunt Server Actions — reachable direct prin
@@ -133,6 +136,7 @@ export async function publishArticleAction(articleId: string) {
     entityId: article.id,
     meta: { title: article.title },
   });
+  await submitUrlToIndexNow(`${baseUrl}/blog/${article.slug}`);
   revalidatePath("/admin/articles");
   revalidatePath("/blog");
 }

@@ -4,6 +4,9 @@ import { logActivity } from "@/lib/activityLog";
 import { generateArticleContent } from "@/lib/ai/generateArticle";
 import { generateCoverImage } from "@/lib/ai/generateCoverImage";
 import { stripHtmlToText } from "@/lib/productDescription";
+import { submitUrlToIndexNow } from "@/lib/seo/indexNow";
+
+const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
 
 /**
  * Generează (Claude pentru text, DALL·E 3 pentru copertă) și publică direct un articol nou
@@ -49,6 +52,8 @@ export async function generateArticleForProduct(productId: string, userId?: stri
       entityId: article.id,
       meta: { productId: product.id, productName: product.name },
     });
+
+    await submitUrlToIndexNow(`${baseUrl}/blog/${slug}`);
 
     return article;
   } catch (error) {
