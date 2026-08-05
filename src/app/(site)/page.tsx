@@ -112,12 +112,13 @@ export default async function HomePage() {
           <div className="mx-auto max-w-5xl px-4 sm:px-6">
             <h2 className="text-2xl font-bold text-brand-900 mb-6">Categorii</h2>
           </div>
-          <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory px-4 sm:px-6 pb-2 [scrollbar-width:thin]">
+          {/* Mobil: carusel cu scroll orizontal. Desktop (sm+): grid, fără scroll. */}
+          <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory px-4 sm:px-6 pb-2 [scrollbar-width:thin] sm:grid sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 sm:overflow-visible sm:snap-none sm:pb-0">
             {groups.map((group) => (
               <Link
                 key={group.name}
                 href={`/produse?grup=${encodeURIComponent(group.name)}`}
-                className="group shrink-0 snap-start w-48 rounded-2xl border border-brand-100 bg-white overflow-hidden hover:shadow-lg hover:border-brand-200 transition-all"
+                className="group shrink-0 snap-start w-48 sm:w-auto sm:shrink rounded-2xl border border-brand-100 bg-white overflow-hidden hover:shadow-lg hover:border-brand-200 transition-all"
               >
                 {group.imageUrl && (
                   <div className="relative h-28 w-full bg-brand-50">
