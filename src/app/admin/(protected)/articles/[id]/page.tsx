@@ -3,6 +3,21 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { updateArticleAction, publishArticleAction, unpublishArticleAction } from "@/lib/actions/adminActions";
 
+interface FaqItem {
+  question: string;
+  answer: string;
+}
+
+function faqToText(faqJson: string | null): string {
+  if (!faqJson) return "";
+  try {
+    const items: FaqItem[] = JSON.parse(faqJson);
+    return items.map((item) => `${item.question}\n${item.answer}`).join("\n\n");
+  } catch {
+    return "";
+  }
+}
+
 export default async function AdminArticleEditPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const article = await prisma.article.findUnique({ where: { id }, include: { product: true } });
@@ -58,6 +73,22 @@ export default async function AdminArticleEditPage({ params }: { params: Promise
             defaultValue={article.content}
             rows={16}
             required
+            className="w-full rounded-lg border border-brand-200 px-3 py-2 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-brand-900 mb-1">
+            Întrebări frecvente (FAQ)
+          </label>
+          <p className="text-xs text-brand-800/50 mb-2">
+            O întrebare pe primul rând al fiecărui bloc, răspunsul pe rândul următor, blocuri separate printr-o
+            linie goală.
+          </p>
+          <textarea
+            name="faq"
+            defaultValue={faqToText(article.faq)}
+            rows={8}
+            placeholder={"Ce este X?\nRăspunsul aici.\n\nCum se folosește X?\nRăspunsul aici."}
             className="w-full rounded-lg border border-brand-200 px-3 py-2 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
           />
         </div>

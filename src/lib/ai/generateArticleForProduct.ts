@@ -16,6 +16,7 @@ export async function generateArticleForProduct(productId: string, userId?: stri
     const generated = await generateArticleContent({
       name: product.name,
       category: product.category,
+      categoryGroup: product.categoryGroup,
       brand: product.brand,
       description: product.description ? stripHtmlToText(product.description) : null,
       price: product.price,
@@ -32,6 +33,7 @@ export async function generateArticleForProduct(productId: string, userId?: stri
         slug,
         content: generated.content,
         excerpt: generated.excerpt,
+        faq: generated.faq.length > 0 ? JSON.stringify(generated.faq) : null,
         coverImageUrl,
         status: "draft",
         generatedBy: "ai",
@@ -86,25 +88,27 @@ export async function generateArticlesForArticlelessProducts(limit: number, user
   return { attempted: products.length, succeeded, failed };
 }
 
-// Câte articole se generează automat, în total, pe săptămână — indiferent câte
-// produse noi vin dintr-un import (un feed poate aduce zeci de mii dintr-o dată).
+// Câte articole se generează automat, în total, pe zi calendaristică — indiferent
+// câte produse noi vin dintr-un import (un feed poate aduce zeci de mii dintr-o dată).
 // Fiecare articol costă bani (Claude + DALL·E), deci generarea automată se face
-// treptat, câte unul, nu în funcție de câte produse fără articol există.
-const WEEKLY_ARTICLE_LIMIT = 3;
+// treptat, câte unul pe zi, nu în funcție de câte produse fără articol există.
+const DAILY_ARTICLE_LIMIT = 1;
 
 /**
- * Apelată din cron-ul periodic: completează până la `WEEKLY_ARTICLE_LIMIT` articole
- * generate automat în ultimele 7 zile, indiferent de câte ori rulează cron-ul în acel
- * interval (ex: la fiecare 6h). Dacă plafonul săptămânal e deja atins, nu mai generează
- * nimic până trec cele 7 zile.
+ * Apelată dintr-un cron separat, zilnic: completează până la `DAILY_ARTICLE_LIMIT`
+ * articole generate automat în ziua calendaristică curentă (UTC), indiferent de câte
+ * ori rulează cron-ul în acea zi. Dacă plafonul zilnic e deja atins, nu mai generează
+ * nimic până a doua zi.
  */
-export async function generateWeeklyArticles(userId?: string | null) {
-  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-  const generatedThisWeek = await prisma.article.count({
-    where: { generatedBy: "ai", createdAt: { gte: sevenDaysAgo } },
+export async function generateDailyArticle(userId?: string | null) {
+  const startOfDay = new Date();
+  startOfDay.setUTCHours(0, 0, 0, 0);
+
+  const generatedToday = await prisma.article.count({
+    where: { generatedBy: "ai", createdAt: { gte: startOfDay } },
   });
 
-  const remaining = Math.max(0, WEEKLY_ARTICLE_LIMIT - generatedThisWeek);
+  const remaining = Math.max(0, DAILY_ARTICLE_LIMIT - generatedToday);
   if (remaining === 0) return { attempted: 0, succeeded: 0, failed: 0, remaining: 0 };
 
   const result = await generateArticlesForArticlelessProducts(remaining, userId);

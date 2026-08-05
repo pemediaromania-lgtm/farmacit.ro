@@ -161,17 +161,33 @@ export async function updateArticleAction(articleId: string, formData: FormData)
   const content = String(formData.get("content") ?? "").trim();
   if (!title || !content) throw new Error("Titlul și conținutul sunt obligatorii");
 
+  // FAQ vine din admin ca perechi întrebare/răspuns pe linii alternante (vezi UI-ul din
+  // pagina de editare), nu ca JSON brut — mai simplu de editat manual decât un textarea cu JSON.
+  const faqRaw = String(formData.get("faq") ?? "").trim();
+  const faq = faqRaw
+    ? JSON.stringify(
+        faqRaw
+          .split(/\n{2,}/)
+          .map((block) => {
+            const [question, ...rest] = block.split("\n");
+            return { question: (question ?? "").trim(), answer: rest.join(" ").trim() };
+          })
+          .filter((item) => item.question && item.answer)
+      )
+    : null;
+
   const existing = await prisma.article.findUniqueOrThrow({ where: { id: articleId } });
   const slug = existing.title === title ? existing.slug : await uniqueSlug("article", title, articleId);
 
   await prisma.article.update({
     where: { id: articleId },
-    data: { title, excerpt, content, slug },
+    data: { title, excerpt, content, slug, faq },
   });
 
   revalidatePath("/admin/articles");
   revalidatePath(`/admin/articles/${articleId}`);
   revalidatePath("/blog");
+  revalidatePath(`/blog/${slug}`);
 }
 
 export async function generateMissingArticlesBatchAction() {

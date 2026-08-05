@@ -21,11 +21,13 @@ function buildPrompt(title: string, category?: string | null) {
 export async function generateCoverImage(title: string, slug: string, category?: string | null): Promise<string> {
   const openai = getClient();
 
+  // "medium" (nu "high") — coperțile de articol sunt ilustrative, nu au nevoie
+  // de rezoluție maximă, iar calitatea "high" costă semnificativ mai mult per imagine.
   const result = await openai.images.generate({
     model: "gpt-image-1",
     prompt: buildPrompt(title, category),
     size: "1024x1024",
-    quality: "high",
+    quality: "medium",
     n: 1,
   });
 
