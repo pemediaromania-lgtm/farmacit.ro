@@ -112,8 +112,9 @@ export default async function HomePage() {
           <div className="mx-auto max-w-5xl px-4 sm:px-6">
             <h2 className="text-2xl font-bold text-brand-900 mb-6">Categorii</h2>
           </div>
-          {/* Mobil: carusel cu scroll orizontal. Desktop (sm+): grid, fără scroll. */}
-          <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory px-4 sm:px-6 pb-2 [scrollbar-width:thin] sm:grid sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 sm:overflow-visible sm:snap-none sm:pb-0">
+          {/* Mobil: carusel cu scroll orizontal, edge-to-edge. Desktop (sm+): grid,
+              încadrat la fel ca restul secțiunilor (mx-auto max-w-5xl), nu full-bleed. */}
+          <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory px-4 sm:px-6 pb-2 [scrollbar-width:thin] sm:mx-auto sm:max-w-5xl sm:grid sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 sm:overflow-visible sm:snap-none sm:pb-0">
             {groups.map((group) => (
               <Link
                 key={group.name}
