@@ -7,6 +7,7 @@ import { logActivity } from "@/lib/activityLog";
 import { importFeed, importFeedFromText } from "@/lib/feed/importFeed";
 import { generateArticleForProduct, generateArticlesForArticlelessProducts } from "@/lib/ai/generateArticleForProduct";
 import { generateCategoryImage } from "@/lib/ai/generateCategoryImage";
+import { generateCoverImage } from "@/lib/ai/generateCoverImage";
 import { ALL_GROUPS } from "@/lib/productCategory";
 import { uniqueSlug } from "@/lib/slug";
 import { submitUrlToIndexNow } from "@/lib/seo/indexNow";
@@ -192,6 +193,23 @@ export async function updateArticleAction(articleId: string, formData: FormData)
   revalidatePath(`/admin/articles/${articleId}`);
   revalidatePath("/blog");
   revalidatePath(`/blog/${slug}`);
+}
+
+/**
+ * Regenerează coperta unui articol — utilă când imaginea originală lipsește (ex: articol
+ * generat printr-un serviciu cron fără volum persistent) sau pur și simplu nu e reușită.
+ */
+export async function regenerateArticleCoverAction(articleId: string) {
+  await requireUserId();
+  const article = await prisma.article.findUniqueOrThrow({ where: { id: articleId }, include: { product: true } });
+
+  const coverImageUrl = await generateCoverImage(article.title, article.slug, article.product?.category);
+  await prisma.article.update({ where: { id: articleId }, data: { coverImageUrl } });
+
+  revalidatePath("/admin/articles");
+  revalidatePath(`/admin/articles/${articleId}`);
+  revalidatePath("/blog");
+  revalidatePath(`/blog/${article.slug}`);
 }
 
 export async function generateMissingArticlesBatchAction() {

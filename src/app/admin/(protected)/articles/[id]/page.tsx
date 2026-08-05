@@ -1,7 +1,12 @@
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { updateArticleAction, publishArticleAction, unpublishArticleAction } from "@/lib/actions/adminActions";
+import {
+  updateArticleAction,
+  publishArticleAction,
+  unpublishArticleAction,
+  regenerateArticleCoverAction,
+} from "@/lib/actions/adminActions";
 
 interface FaqItem {
   question: string;
@@ -42,10 +47,18 @@ export default async function AdminArticleEditPage({ params }: { params: Promise
       </div>
 
       {article.coverImageUrl && (
-        <div className="relative w-full h-56 rounded-2xl overflow-hidden mb-6 bg-brand-50">
+        <div className="relative w-full h-56 rounded-2xl overflow-hidden mb-3 bg-brand-50">
           <Image src={article.coverImageUrl} alt={article.title} fill className="object-cover" />
         </div>
       )}
+      <form action={regenerateArticleCoverAction.bind(null, article.id)} className="mb-6">
+        <button
+          type="submit"
+          className="rounded-full bg-white border border-brand-200 text-brand-700 text-sm font-medium px-4 py-1.5 hover:bg-brand-50 transition-colors"
+        >
+          Regenerează coperta
+        </button>
+      </form>
 
       <form action={boundUpdate} className="space-y-4">
         <div>
