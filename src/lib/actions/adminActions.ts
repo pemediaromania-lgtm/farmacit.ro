@@ -8,6 +8,7 @@ import { importFeed, importFeedFromText } from "@/lib/feed/importFeed";
 import { generateArticleForProduct, generateArticlesForArticlelessProducts } from "@/lib/ai/generateArticleForProduct";
 import { generateCategoryImage } from "@/lib/ai/generateCategoryImage";
 import { generateCoverImage } from "@/lib/ai/generateCoverImage";
+import { generateAllCategoryContent } from "@/lib/ai/generateAllCategoryContent";
 import { ALL_GROUPS } from "@/lib/productCategory";
 import { uniqueSlug } from "@/lib/slug";
 import { submitUrlToIndexNow } from "@/lib/seo/indexNow";
@@ -236,6 +237,19 @@ export async function regenerateCategoryImagesAction() {
   }
   revalidatePath("/");
   revalidatePath("/admin");
+}
+
+/**
+ * Generează (Claude Haiku) textul SEO + FAQ pentru toate paginile de categorie
+ * (grupuri + subcategorii) care încă nu au unul — idempotent, poate fi rulată de
+ * mai multe ori, completează doar ce lipsește. ~20 apeluri, o singură dată.
+ */
+export async function generateCategoryContentAction() {
+  const userId = await requireUserId();
+  await generateAllCategoryContent(userId);
+  revalidatePath("/produse");
+  revalidatePath("/admin");
+  revalidatePath("/admin/activity");
 }
 
 export async function toggleProductActiveAction(productId: string, isActive: boolean) {

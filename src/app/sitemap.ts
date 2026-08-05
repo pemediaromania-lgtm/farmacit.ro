@@ -8,9 +8,10 @@ export const dynamic = "force-dynamic";
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
 
-  const [articles, products] = await Promise.all([
+  const [articles, products, categoryContents] = await Promise.all([
     prisma.article.findMany({ where: { status: "published" }, select: { slug: true, updatedAt: true } }),
     prisma.product.findMany({ where: { isActive: true }, select: { slug: true, updatedAt: true } }),
+    prisma.categoryContent.findMany({ select: { categoryGroup: true, category: true, updatedAt: true } }),
   ]);
 
   return [
@@ -32,6 +33,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: p.updatedAt,
       changeFrequency: "weekly" as const,
       priority: 0.6,
+    })),
+    // Pagini de categorie (grup sau subcategorie) — au conținut SEO propriu (vezi
+    // CategoryContent) și un canonical dedicat, deci merită indexate separat.
+    ...categoryContents.map((c) => ({
+      url: c.category
+        ? `${baseUrl}/produse?categorie=${encodeURIComponent(c.category)}`
+        : `${baseUrl}/produse?grup=${encodeURIComponent(c.categoryGroup)}`,
+      lastModified: c.updatedAt,
+      changeFrequency: "weekly" as const,
+      priority: 0.5,
     })),
   ];
 }

@@ -11,7 +11,9 @@ export type ActivityAction =
   | "article.generation_failed"
   | "article.published"
   | "article.unpublished"
-  | "product.clicked";
+  | "product.clicked"
+  | "category_content.generated"
+  | "category_content.generation_failed";
 
 export async function logActivity(params: {
   action: ActivityAction;
@@ -52,4 +54,6 @@ export const ACTIVITY_LABELS: Record<ActivityAction, string> = {
   "article.published": "Articol publicat",
   "article.unpublished": "Articol retras din publicare",
   "product.clicked": "Click pe link afiliat",
+  "category_content.generated": "Conținut categorii generat",
+  "category_content.generation_failed": "Generare conținut categorie eșuată",
 };

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { ACTIVITY_LABELS, parseActivityMeta, type ActivityAction } from "@/lib/activityLog";
-import { regenerateCategoryImagesAction } from "@/lib/actions/adminActions";
+import { regenerateCategoryImagesAction, generateCategoryContentAction } from "@/lib/actions/adminActions";
 
 export default async function AdminDashboardPage() {
   const [feedCount, productCount, publishedCount, draftCount, clicksAgg, recentActivity] = await Promise.all([
@@ -47,6 +47,18 @@ export default async function AdminDashboardPage() {
         </button>
         <span className="text-xs text-brand-800/60">
           O singură imagine ilustrativă per categorie (nu per produs) — poate dura 1-2 minute.
+        </span>
+      </form>
+
+      <form action={generateCategoryContentAction} className="mb-10 flex items-center gap-3">
+        <button
+          type="submit"
+          className="rounded-full bg-brand-600 text-white text-sm font-medium px-4 py-2 hover:bg-brand-700"
+        >
+          Generează descrieri SEO + FAQ categorii
+        </button>
+        <span className="text-xs text-brand-800/60">
+          Text SEO și FAQ pentru fiecare grup și subcategorie — completează doar ce lipsește, poate dura câteva minute.
         </span>
       </form>
 

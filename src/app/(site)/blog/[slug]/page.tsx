@@ -7,13 +7,9 @@ import { prisma } from "@/lib/prisma";
 import { ProductImage } from "@/components/site/ProductImage";
 import { extractToc } from "@/lib/articleToc";
 import { submitArticleCommentAction } from "@/lib/actions/articleCommentActions";
+import { parseFaqJson } from "@/lib/faq";
 
 export const dynamic = "force-dynamic";
-
-interface FaqItem {
-  question: string;
-  answer: string;
-}
 
 async function getArticle(slug: string) {
   return prisma.article.findUnique({
@@ -23,19 +19,6 @@ async function getArticle(slug: string) {
       comments: { orderBy: { createdAt: "desc" } },
     },
   });
-}
-
-function parseFaq(faqJson: string | null): FaqItem[] {
-  if (!faqJson) return [];
-  try {
-    const items = JSON.parse(faqJson);
-    if (!Array.isArray(items)) return [];
-    return items
-      .map((item) => ({ question: String(item.question ?? ""), answer: String(item.answer ?? "") }))
-      .filter((item) => item.question && item.answer);
-  } catch {
-    return [];
-  }
 }
 
 const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
@@ -69,7 +52,7 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
   if (!article || article.status !== "published") notFound();
 
   const toc = extractToc(article.content);
-  const faq = parseFaq(article.faq);
+  const faq = parseFaqJson(article.faq);
   const comments = article.comments;
 
   const relatedProducts = article.product

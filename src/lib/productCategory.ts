@@ -365,6 +365,12 @@ export function classifyProduct(name: string, rawCategory?: string | null): Prod
 
 export const ALL_SUBCATEGORY_NAMES: string[] = [...CATEGORY_RULES.map((rule) => rule.name), FALLBACK_CATEGORY];
 
+/** Perechile (grup, subcategorie) reale ale taxonomiei — fără categoria-fallback "Diverse", care nu are o temă coerentă de cuvinte-cheie. */
+export const ALL_SUBCATEGORIES: { group: string; name: string }[] = CATEGORY_RULES.map((rule) => ({
+  group: rule.group,
+  name: rule.name,
+}));
+
 /** Grupuri de nivel superior, în ordinea în care trebuie afișate (Diverse ultimul). */
 export const ALL_GROUPS: string[] = [
   "Suplimente și sănătate naturistă",

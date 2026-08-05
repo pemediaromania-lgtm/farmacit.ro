@@ -1,19 +1,15 @@
+import { cache } from "react";
 import Link from "next/link";
 import type { Metadata } from "next";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { ProductImage } from "@/components/site/ProductImage";
 import { ALL_GROUPS } from "@/lib/productCategory";
-
-export const metadata: Metadata = {
-  title: "Produse",
-  description: "Produse farmaceutice și naturiste recomandate de Farmatic.ro.",
-  // Canonical fix pe /produse (fără query params) — filtrele de categorie/căutare
-  // nu trebuie indexate separat ca pagini distincte (conținut duplicat).
-  alternates: { canonical: "/produse" },
-};
+import { parseFaqJson } from "@/lib/faq";
 
 export const dynamic = "force-dynamic";
+
+const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
 
 // Păstrează termenul de căutare curent când se schimbă filtrul de categorie, ca
 // să nu se piardă căutarea la un click pe o pastilă de grup/subcategorie.
@@ -26,6 +22,61 @@ function buildHref(params: { grup?: string; categorie?: string; q?: string }) {
   return qs ? `/produse?${qs}` : "/produse";
 }
 
+// Canonical NU include `q` (căutarea liberă nu trebuie indexată ca pagină proprie).
+// Dacă e setată `categorie`, `grup` e omis din canonical — categoria identifică
+// pagina complet de una singură, iar linkurile interne (pastilele de subcategorie)
+// trimit mereu cu grup+categorie împreună; fără normalizarea asta am avea două
+// URL-uri canonice diferite pentru exact același conținut (grup+categorie vs.
+// doar categorie, cum apare și în sitemap.ts).
+function buildCanonical(params: { grup?: string; categorie?: string }) {
+  const search = new URLSearchParams();
+  if (params.categorie) search.set("categorie", params.categorie);
+  else if (params.grup) search.set("grup", params.grup);
+  const qs = search.toString();
+  return qs ? `/produse?${qs}` : "/produse";
+}
+
+// cache() dedupe query-ul între generateMetadata și componenta paginii (aceeași
+// cerere HTTP) — altfel am interoga CategoryContent de două ori pentru nimic.
+const getCategoryContentByCategory = cache((category: string) =>
+  prisma.categoryContent.findFirst({ where: { category } })
+);
+const getCategoryContentByGroup = cache((categoryGroup: string) =>
+  prisma.categoryContent.findUnique({ where: { categoryGroup_category: { categoryGroup, category: "" } } })
+);
+
+async function getCategoryContent(grup?: string, categorie?: string) {
+  if (categorie) return getCategoryContentByCategory(categorie);
+  if (grup) return getCategoryContentByGroup(grup);
+  return null;
+}
+
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<{ grup?: string; categorie?: string }>;
+}): Promise<Metadata> {
+  const { grup, categorie } = await searchParams;
+  const categoryContent = await getCategoryContent(grup, categorie);
+
+  const title = categorie ?? grup ?? "Produse";
+  const description =
+    categoryContent?.description.slice(0, 160) ??
+    (categorie
+      ? `Produse din categoria ${categorie} — farmaceutice, naturiste și suplimente, la Farmatic.ro.`
+      : grup
+        ? `${grup}: produse recomandate de Farmatic.ro.`
+        : "Produse farmaceutice și naturiste recomandate de Farmatic.ro.");
+  const canonical = buildCanonical({ grup, categorie });
+
+  return {
+    title,
+    description,
+    alternates: { canonical },
+    openGraph: { title, description, url: `${baseUrl}${canonical}`, type: "website" },
+  };
+}
+
 export default async function ProductsPage({
   searchParams,
 }: {
@@ -33,6 +84,8 @@ export default async function ProductsPage({
 }) {
   const { grup, categorie, q } = await searchParams;
   const query = q?.trim();
+  const categoryContent = await getCategoryContent(grup, categorie);
+  const faq = parseFaqJson(categoryContent?.faq ?? null);
 
   // O subcategorie selectată implică grupul ei — dacă vine direct un link vechi
   // cu doar `categorie` (ex: din pagina de produs), nu mai cerem și `grup`.
@@ -167,6 +220,52 @@ export default async function ProductsPage({
             </Link>
           ))}
         </div>
+      )}
+
+      {!query && categoryContent && (
+        <section className="mt-14">
+          {faq.length > 0 && (
+            <script
+              type="application/ld+json"
+              dangerouslySetInnerHTML={{
+                __html: JSON.stringify({
+                  "@context": "https://schema.org",
+                  "@type": "FAQPage",
+                  mainEntity: faq.map((item) => ({
+                    "@type": "Question",
+                    name: item.question,
+                    acceptedAnswer: { "@type": "Answer", text: item.answer },
+                  })),
+                }),
+              }}
+            />
+          )}
+
+          <div className="prose-farmatic text-brand-800/80 max-w-3xl">
+            {categoryContent.description.split(/\n{2,}/).map((paragraph, i) => (
+              <p key={i}>{paragraph}</p>
+            ))}
+          </div>
+
+          {faq.length > 0 && (
+            <div className="mt-8 max-w-3xl">
+              <h2 className="text-lg font-bold text-brand-900 mb-4">Întrebări frecvente</h2>
+              <div className="space-y-3">
+                {faq.map((item) => (
+                  <details key={item.question} className="rounded-2xl border border-brand-100 bg-white p-4 group">
+                    <summary className="cursor-pointer font-medium text-brand-900 marker:content-none flex items-center justify-between gap-4">
+                      {item.question}
+                      <span className="text-brand-400 group-open:rotate-45 transition-transform text-xl leading-none">
+                        +
+                      </span>
+                    </summary>
+                    <p className="mt-3 text-sm text-brand-800/80 leading-relaxed">{item.answer}</p>
+                  </details>
+                ))}
+              </div>
+            </div>
+          )}
+        </section>
       )}
     </div>
   );

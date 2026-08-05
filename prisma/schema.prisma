@@ -111,6 +111,19 @@ model ArticleComment {
   @@index([articleId])
 }
 
+model CategoryContent {
+  id            String   @id @default(cuid())
+  categoryGroup String // grupul de nivel superior (ex: "Suplimente și sănătate naturistă")
+  category      String   @default("") // "" = pagina grupului; altfel numele subcategoriei (ex: "Miere de Manuka")
+  description   String // text SEO, afișat sub grila de produse
+  faq           String // JSON: [{ "question": "...", "answer": "..." }]
+  generatedBy   String   @default("ai") // "ai" | "manual"
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([categoryGroup, category])
+}
+
 model ActivityLog {
   id         String   @id @default(cuid())
   userId     String?
