@@ -6,8 +6,9 @@ import { generateCoverImage } from "@/lib/ai/generateCoverImage";
 import { stripHtmlToText } from "@/lib/productDescription";
 
 /**
- * Generează (Claude pentru text, DALL·E 3 pentru copertă) și salvează ca articol `draft`
- * un articol nou pentru produsul dat. Aruncă eroare dacă produsul nu există sau cheile AI lipsesc.
+ * Generează (Claude pentru text, DALL·E 3 pentru copertă) și publică direct un articol nou
+ * pentru produsul dat — fără pas manual de aprobare (cerință explicită: conținutul AI merge
+ * live imediat ce e generat). Aruncă eroare dacă produsul nu există sau cheile AI lipsesc.
  */
 export async function generateArticleForProduct(productId: string, userId?: string | null) {
   const product = await prisma.product.findUniqueOrThrow({ where: { id: productId } });
@@ -35,7 +36,8 @@ export async function generateArticleForProduct(productId: string, userId?: stri
         excerpt: generated.excerpt,
         faq: generated.faq.length > 0 ? JSON.stringify(generated.faq) : null,
         coverImageUrl,
-        status: "draft",
+        status: "published",
+        publishedAt: new Date(),
         generatedBy: "ai",
       },
     });
