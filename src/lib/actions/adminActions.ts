@@ -10,9 +10,17 @@ import { generateCategoryImage } from "@/lib/ai/generateCategoryImage";
 import { ALL_GROUPS } from "@/lib/productCategory";
 import { uniqueSlug } from "@/lib/slug";
 
-async function currentUserId() {
+/**
+ * Toate acțiunile din acest fișier sunt Server Actions — reachable direct prin
+ * POST de oricine cunoaște ID-ul acțiunii, indiferent dacă randează vreodată
+ * pagina de admin (vezi Next.js docs: "treat every action as an untrusted entry
+ * point"). Fără această verificare, oricine ar putea șterge feed-uri, genera
+ * conținut plătit (Claude/DALL·E) sau modifica produse fără să fie autentificat.
+ */
+async function requireUserId(): Promise<string> {
   const session = await auth();
-  return session?.user?.id ?? null;
+  if (!session?.user?.id) throw new Error("Neautorizat");
+  return session.user.id;
 }
 
 export async function createFeedAction(formData: FormData) {
@@ -20,7 +28,7 @@ export async function createFeedAction(formData: FormData) {
   const url = String(formData.get("url") ?? "").trim();
   if (!name || !url) throw new Error("Numele și URL-ul feed-ului sunt obligatorii");
 
-  const userId = await currentUserId();
+  const userId = await requireUserId();
   const feed = await prisma.feed.create({ data: { name, url, createdById: userId } });
   await logActivity({ action: "feed.created", userId, entityType: "feed", entityId: feed.id, meta: { name, url } });
 
@@ -33,7 +41,7 @@ export async function createFeedAction(formData: FormData) {
  * folosit când un comerciant e scos definitiv din catalog.
  */
 export async function deleteFeedAction(feedId: string) {
-  const userId = await currentUserId();
+  const userId = await requireUserId();
   const feed = await prisma.feed.findUniqueOrThrow({ where: { id: feedId } });
   const productCount = await prisma.product.count({ where: { feedId } });
 
@@ -65,7 +73,7 @@ const UPLOAD_URL_PREFIX = "upload:";
  * un re-upload actualizează produsele existente în loc să le dubleze.
  */
 export async function uploadFeedAction(feedId: string | null, formData: FormData) {
-  const userId = await currentUserId();
+  const userId = await requireUserId();
 
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) throw new Error("Selectează un fișier CSV sau XML");
@@ -97,7 +105,7 @@ export async function uploadFeedAction(feedId: string | null, formData: FormData
 }
 
 export async function syncFeedAction(feedId: string) {
-  const userId = await currentUserId();
+  const userId = await requireUserId();
   await importFeed(feedId, userId);
   revalidatePath("/admin/feeds");
   revalidatePath("/admin/products");
@@ -105,7 +113,7 @@ export async function syncFeedAction(feedId: string) {
 }
 
 export async function generateArticleAction(productId: string) {
-  const userId = await currentUserId();
+  const userId = await requireUserId();
   await generateArticleForProduct(productId, userId);
   revalidatePath("/admin/products");
   revalidatePath("/admin/articles");
@@ -113,7 +121,7 @@ export async function generateArticleAction(productId: string) {
 }
 
 export async function publishArticleAction(articleId: string) {
-  const userId = await currentUserId();
+  const userId = await requireUserId();
   const article = await prisma.article.update({
     where: { id: articleId },
     data: { status: "published", publishedAt: new Date() },
@@ -130,7 +138,7 @@ export async function publishArticleAction(articleId: string) {
 }
 
 export async function unpublishArticleAction(articleId: string) {
-  const userId = await currentUserId();
+  const userId = await requireUserId();
   const article = await prisma.article.update({
     where: { id: articleId },
     data: { status: "draft", publishedAt: null },
@@ -147,6 +155,7 @@ export async function unpublishArticleAction(articleId: string) {
 }
 
 export async function updateArticleAction(articleId: string, formData: FormData) {
+  await requireUserId();
   const title = String(formData.get("title") ?? "").trim();
   const excerpt = String(formData.get("excerpt") ?? "").trim();
   const content = String(formData.get("content") ?? "").trim();
@@ -166,7 +175,7 @@ export async function updateArticleAction(articleId: string, formData: FormData)
 }
 
 export async function generateMissingArticlesBatchAction() {
-  const userId = await currentUserId();
+  const userId = await requireUserId();
   await generateArticlesForArticlelessProducts(10, userId);
   revalidatePath("/admin/products");
   revalidatePath("/admin/articles");
@@ -179,6 +188,7 @@ export async function generateMissingArticlesBatchAction() {
  * vizual pe tile-urile de pe homepage. Rulează secvențial și poate dura 1-2 minute.
  */
 export async function regenerateCategoryImagesAction() {
+  await requireUserId();
   for (const group of ALL_GROUPS) {
     try {
       await generateCategoryImage(group);
@@ -191,6 +201,7 @@ export async function regenerateCategoryImagesAction() {
 }
 
 export async function toggleProductActiveAction(productId: string, isActive: boolean) {
+  await requireUserId();
   await prisma.product.update({ where: { id: productId }, data: { isActive } });
   revalidatePath("/admin/products");
   revalidatePath("/produse");
