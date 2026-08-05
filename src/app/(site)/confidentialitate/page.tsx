@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { CookiePreferencesButton } from "@/components/CookiePreferencesButton";
 
 export const metadata: Metadata = {
   title: "Politica de confidențialitate",
@@ -31,8 +32,7 @@ export default function PrivacyPolicyPage() {
           </li>
           <li>
             <strong>Date tehnice de navigare:</strong> adresă IP, tip de browser și pagini vizitate, colectate
-            automat de infrastructura de găzduire (Railway) pentru securitate și funcționare, și — dacă
-            Google Analytics este activ — pentru statistici agregate de trafic.
+            automat de infrastructura de găzduire (Railway) pentru securitate și funcționare.
           </li>
           <li>
             <strong>Cookie-uri de afiliere:</strong> când dai click pe un link „Cumpără acum”, ești redirecționat
@@ -41,6 +41,23 @@ export default function PrivacyPolicyPage() {
             comandă de la partener.
           </li>
         </ul>
+
+        <h2>Cookie-uri</h2>
+        <p>Site-ul folosește două categorii de cookie-uri:</p>
+        <ul>
+          <li>
+            <strong>Strict necesare:</strong> folosite doar pentru sesiunea de administrare a site-ului (nu
+            afectează vizitatorii obișnuiți). Nu necesită consimțământ.
+          </li>
+          <li>
+            <strong>Analiză (Google Analytics):</strong> ne ajută să înțelegem ce pagini sunt utile
+            cititorilor. Nu pornesc automat — apar doar dacă apeși „Accept” pe bannerul de cookie-uri afișat
+            la prima vizită. Dacă apeși „Refuz”, Google Analytics nu se încarcă deloc.
+          </li>
+        </ul>
+        <p>
+          Îți poți schimba oricând alegerea: <CookiePreferencesButton />.
+        </p>
 
         <h2>De ce colectăm aceste date</h2>
         <p>
