@@ -4,6 +4,10 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  // Railway (ca orice hosting din spatele unui reverse proxy, spre deosebire de
+  // Vercel) are nevoie de asta explicit — altfel Auth.js respinge cererile cu
+  // "UntrustedHost", chiar dacă NEXTAUTH_URL e setat corect.
+  trustHost: true,
   session: { strategy: "jwt" },
   pages: { signIn: "/admin/login" },
   providers: [
