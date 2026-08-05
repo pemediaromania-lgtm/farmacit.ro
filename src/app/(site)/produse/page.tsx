@@ -8,6 +8,9 @@ import { ALL_GROUPS } from "@/lib/productCategory";
 export const metadata: Metadata = {
   title: "Produse",
   description: "Produse farmaceutice și naturiste recomandate de Farmatic.ro.",
+  // Canonical fix pe /produse (fără query params) — filtrele de categorie/căutare
+  // nu trebuie indexate separat ca pagini distincte (conținut duplicat).
+  alternates: { canonical: "/produse" },
 };
 
 export const dynamic = "force-dynamic";

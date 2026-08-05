@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 export const metadata: Metadata = {
   title: "Blog",
   description: "Articole despre produse farmaceutice și naturiste, scrise cu grijă pentru sănătatea ta.",
+  alternates: { canonical: "/blog" },
 };
 
 export const dynamic = "force-dynamic";
