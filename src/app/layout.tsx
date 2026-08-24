@@ -40,6 +40,12 @@ const organizationJsonLd = {
   name: siteName,
   url: baseUrl,
   description: siteDescription,
+  logo: {
+    "@type": "ImageObject",
+    url: `${baseUrl}/icon-512.png`,
+    width: 512,
+    height: 512,
+  },
 };
 
 const websiteJsonLd = {

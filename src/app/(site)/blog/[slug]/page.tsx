@@ -84,7 +84,11 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
     datePublished: (article.publishedAt ?? article.createdAt).toISOString(),
     dateModified: article.updatedAt.toISOString(),
     author: { "@type": "Organization", name: "farmatic.ro" },
-    publisher: { "@type": "Organization", name: "farmatic.ro" },
+    publisher: {
+      "@type": "Organization",
+      name: "Farmatic.ro",
+      logo: { "@type": "ImageObject", url: `${baseUrl}/icon-512.png`, width: 512, height: 512 },
+    },
     mainEntityOfPage: `${baseUrl}/blog/${article.slug}`,
   };
 

@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { ProductImage } from "@/components/site/ProductImage";
 import { submitReviewAction } from "@/lib/actions/reviewActions";
 import { descriptionHasHtml, sanitizeProductDescription, stripHtmlToText } from "@/lib/productDescription";
+import { parseFaqJson } from "@/lib/faq";
 
 export const dynamic = "force-dynamic";
 
@@ -59,6 +60,9 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
   if (!product || !product.isActive) notFound();
 
   const article = product.articles[0];
+  // FAQ-ul e generat o singură dată, odată cu articolul AI al produsului — apare
+  // pe pagina produsului treptat, produs cu produs, în ritmul generării articolelor.
+  const faq = article ? parseFaqJson(article.faq) : [];
   const reviews = product.reviews;
   const averageRating =
     reviews.length > 0 ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length : null;
@@ -81,6 +85,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
       priceCurrency: product.currency,
       price: product.price ?? undefined,
       availability: "https://schema.org/InStock",
+      priceValidUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
     },
     ...(averageRating != null && {
       aggregateRating: {
@@ -91,12 +96,78 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
     }),
   };
 
+  // Firul de breadcrumb (Acasă > grup > categorie > produs) — apare direct în
+  // rezultatele Google în loc de URL brut.
+  const breadcrumbItems = [
+    { name: "Acasă", url: baseUrl },
+    product.categoryGroup && {
+      name: product.categoryGroup,
+      url: `${baseUrl}/produse?grup=${encodeURIComponent(product.categoryGroup)}`,
+    },
+    product.category && {
+      name: product.category,
+      url: `${baseUrl}/produse?${
+        product.categoryGroup ? `grup=${encodeURIComponent(product.categoryGroup)}&` : ""
+      }categorie=${encodeURIComponent(product.category)}`,
+    },
+    { name: product.name, url: `${baseUrl}/produse/${product.slug}` },
+  ].filter((item): item is { name: string; url: string } => Boolean(item));
+
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: breadcrumbItems.map((item, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      name: item.name,
+      item: item.url,
+    })),
+  };
+
+  const faqJsonLd =
+    faq.length > 0
+      ? {
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          mainEntity: faq.map((item) => ({
+            "@type": "Question",
+            name: item.question,
+            acceptedAnswer: { "@type": "Answer", text: item.answer },
+          })),
+        }
+      : null;
+
   return (
     <div className="mx-auto max-w-3xl px-4 sm:px-6 py-12">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }}
       />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
+      {faqJsonLd && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+        />
+      )}
+      <nav aria-label="Breadcrumb" className="mb-6 text-xs text-brand-800/60 flex flex-wrap items-center gap-1">
+        {breadcrumbItems.map((item, i) => (
+          <span key={item.url} className="flex items-center gap-1">
+            {i > 0 && <span className="text-brand-300">/</span>}
+            {i === breadcrumbItems.length - 1 ? (
+              <span className="text-brand-800/80 line-clamp-1">{item.name}</span>
+            ) : (
+              <Link href={item.url.replace(baseUrl, "") || "/"} className="hover:text-brand-700 hover:underline">
+                {item.name}
+              </Link>
+            )}
+          </span>
+        ))}
+      </nav>
+
       <div className="grid gap-8 sm:grid-cols-2 items-start">
         <div className="relative aspect-square w-full rounded-2xl bg-brand-50 overflow-hidden">
           <ProductImage src={product.imageUrl} alt={product.name} className="h-full w-full object-contain p-8" />
@@ -192,6 +263,25 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
               </div>
             )}
           </dl>
+        </section>
+      )}
+
+      {faq.length > 0 && (
+        <section className="mt-12">
+          <h2 className="text-xl font-bold text-brand-900 mb-4">Întrebări frecvente</h2>
+          <div className="space-y-3">
+            {faq.map((item) => (
+              <details key={item.question} className="rounded-2xl border border-brand-100 bg-white p-4 group">
+                <summary className="cursor-pointer font-medium text-brand-900 marker:content-none flex items-center justify-between gap-4">
+                  {item.question}
+                  <span className="text-brand-400 group-open:rotate-45 transition-transform text-xl leading-none">
+                    +
+                  </span>
+                </summary>
+                <p className="mt-3 text-sm text-brand-800/80 leading-relaxed">{item.answer}</p>
+              </details>
+            ))}
+          </div>
         </section>
       )}
 
