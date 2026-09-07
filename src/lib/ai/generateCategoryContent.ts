@@ -11,6 +11,7 @@ export interface GeneratedFaqItem {
 }
 
 export interface GeneratedCategoryContent {
+  metaTitle: string;
   description: string;
   faq: GeneratedFaqItem[];
 }
@@ -31,31 +32,56 @@ const MODEL = "claude-haiku-4-5-20251001";
 function buildPrompt({ categoryGroup, category }: CategoryContentInput) {
   const subject = category ? `subcategoria "${category}" (parte din "${categoryGroup}")` : `categoria "${categoryGroup}"`;
 
-  return `Ești redactorul SEO al farmatic.ro — un magazin afiliat românesc de produse farmaceutice, naturiste și suplimente alimentare. Scrii textul care apare sub grila de produse a unei pagini de categorie, pentru ${subject}.
+  return `Ești redactorul SEO al farmatic.ro — un magazin afiliat românesc de produse farmaceutice, naturiste și suplimente alimentare. Scrii pachetul SEO (titlu de pagină + text + FAQ) pentru pagina de categorie a ${subject}.
 
-Scopul textului este să se poziționeze în Google pentru cuvintele-cheie reale pe care le caută cumpărătorii români când vor să cumpere astfel de produse (ex: "[produs] preț", "[produs] beneficii", "cel mai bun [produs]", "cum se alege [produs]") — deci scrie natural, dar include variații firești ale acestor tipuri de căutări, nu doar propoziții generice.
+Scopul e să se poziționeze în Google pentru cuvintele-cheie reale pe care le caută cumpărătorii români când vor să cumpere astfel de produse (ex: "[produs] preț", "[produs] beneficii", "cel mai bun [produs]", "cum se alege [produs]") — deci scrie natural, dar include variații firești ale acestor tipuri de căutări, nu doar propoziții generice.
 
 Reguli obligatorii:
 - Limba română, ton clar și de încredere, nu publicitar agresiv.
 - NU inventa beneficii medicale nesusținute și NU afirma că produsele tratează/vindecă boli.
-- Text simplu, în 2 paragrafe (fără headinguri, fără markdown, fără liste) — se afișează ca text simplu sub produse.
-- Lungime: 120-200 cuvinte.
-- Generează și 4 întrebări frecvente (FAQ) pe care le-ar căuta cineva înainte să cumpere din această categorie, cu răspunsuri scurte (1-2 propoziții).
+- "metaTitle": titlul care apare în fila browserului și în rezultatul Google — sub 55 de caractere, conține cuvântul-cheie principal al categoriei, NU include numele site-ului (se adaugă automat separat) și NU repetă cuvânt cu cuvânt numele brut al categoriei — formulează-l ca o frază de căutare reală.
+- "description": text simplu, 2 paragrafe, 120-200 cuvinte, fără headinguri/markdown/liste — se afișează ca text simplu sub produse.
+- "faq": exact 4 întrebări frecvente pe care le-ar căuta cineva înainte să cumpere din această categorie, cu răspunsuri scurte (1-2 propoziții).
 
-Răspunde STRICT cu un obiect JSON valid, fără text în plus, fără code fences, cu exact cheile:
-{"description": "...", "faq": [{"question": "...", "answer": "..."}]}
-- "faq": array cu exact 4 obiecte {"question", "answer"}.`;
+Trimite rezultatul apelând tool-ul \`submit_category_content\`.`;
 }
 
-function extractJson(text: string): GeneratedCategoryContent {
-  const start = text.indexOf("{");
-  const end = text.lastIndexOf("}");
-  if (start === -1 || end === -1 || end <= start) {
-    throw new Error("Răspunsul Claude nu conține JSON valid");
-  }
-  const parsed = JSON.parse(text.slice(start, end + 1));
-  if (!parsed.description) {
-    throw new Error("Răspunsul Claude nu are câmpul așteptat (description)");
+// Tool forțat (tool_choice), nu text liber urmat de parsare — un JSON generat ca text de
+// model poate conține ghilimele/newline-uri neescapate în interiorul string-urilor, ceea
+// ce rupea `JSON.parse` naiv. Un apel de tool cu input_schema e validat de API înainte să
+// ajungă la noi, deci elimină complet această clasă de eșecuri.
+const CATEGORY_CONTENT_TOOL: Anthropic.Tool = {
+  name: "submit_category_content",
+  description: "Trimite pachetul SEO generat pentru pagina de categorie.",
+  input_schema: {
+    type: "object",
+    properties: {
+      metaTitle: {
+        type: "string",
+        description: "Titlu de pagină SEO, sub 55 de caractere, fără numele site-ului.",
+      },
+      description: { type: "string", description: "Text simplu, 2 paragrafe, 120-200 cuvinte." },
+      faq: {
+        type: "array",
+        description: "Exact 4 întrebări frecvente.",
+        items: {
+          type: "object",
+          properties: {
+            question: { type: "string" },
+            answer: { type: "string" },
+          },
+          required: ["question", "answer"],
+        },
+      },
+    },
+    required: ["metaTitle", "description", "faq"],
+  },
+};
+
+function parseToolInput(input: unknown): GeneratedCategoryContent {
+  const parsed = input as Record<string, unknown>;
+  if (!parsed.metaTitle || !parsed.description) {
+    throw new Error("Claude nu a returnat câmpurile așteptate (metaTitle/description)");
   }
   const faq: GeneratedFaqItem[] = Array.isArray(parsed.faq)
     ? parsed.faq
@@ -67,7 +93,7 @@ function extractJson(text: string): GeneratedCategoryContent {
         .filter((item: GeneratedFaqItem) => item.question && item.answer)
     : [];
 
-  return { description: String(parsed.description), faq };
+  return { metaTitle: String(parsed.metaTitle), description: String(parsed.description), faq };
 }
 
 export async function generateCategoryContent(input: CategoryContentInput): Promise<GeneratedCategoryContent> {
@@ -75,13 +101,15 @@ export async function generateCategoryContent(input: CategoryContentInput): Prom
   const message = await anthropic.messages.create({
     model: MODEL,
     max_tokens: 1200,
+    tools: [CATEGORY_CONTENT_TOOL],
+    tool_choice: { type: "tool", name: "submit_category_content" },
     messages: [{ role: "user", content: buildPrompt(input) }],
   });
 
-  const textBlock = message.content.find((block) => block.type === "text");
-  if (!textBlock || textBlock.type !== "text") {
-    throw new Error("Claude nu a returnat conținut text");
+  const toolBlock = message.content.find((block) => block.type === "tool_use");
+  if (!toolBlock || toolBlock.type !== "tool_use") {
+    throw new Error("Claude nu a returnat un tool_use");
   }
 
-  return extractJson(textBlock.text);
+  return parseToolInput(toolBlock.input);
 }

@@ -23,10 +23,33 @@ async function getProduct(slug: string) {
 
 const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
 
-function metaDescription(product: { description: string | null; name: string; brand: string | null }) {
-  const raw = product.description ?? `${product.name}${product.brand ? ` de la ${product.brand}` : ""}.`;
-  const text = product.description ? stripHtmlToText(raw) : raw;
-  return text.length > 160 ? `${text.slice(0, 157)}...` : text;
+// Prețul apare explicit în snippet (când încape și nu e deja menționat în text) —
+// o mare parte din interogările pe care apărem includ "pret", deci un snippet care
+// răspunde direct la asta crește șansa de click față de o descriere generică.
+function metaDescription(product: {
+  description: string | null;
+  name: string;
+  brand: string | null;
+  price: number | null;
+  currency: string;
+}) {
+  const priceLine = product.price != null ? `Preț: ${product.price.toFixed(2)} ${product.currency}.` : "";
+
+  if (!product.description) {
+    const brandPart = product.brand ? ` de la ${product.brand}` : "";
+    return `Cumpără ${product.name}${brandPart} online, cu livrare rapidă. ${priceLine}`.trim();
+  }
+
+  const text = stripHtmlToText(product.description);
+  const withPrice = priceLine && !text.includes(product.currency) ? `${text} ${priceLine}` : text;
+  if (withPrice.length <= 160) return withPrice;
+
+  // Trunchiere pe limită de cuvânt, nu la mijlocul unuia — un snippet care se taie
+  // frumos citește mai bine decât unul terminat abrupt.
+  const truncated = text.slice(0, 155);
+  const lastSpace = truncated.lastIndexOf(" ");
+  const clean = lastSpace > 40 ? truncated.slice(0, lastSpace) : truncated;
+  return `${clean.trimEnd()}…`;
 }
 
 export async function generateMetadata({

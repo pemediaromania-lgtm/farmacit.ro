@@ -115,6 +115,7 @@ model CategoryContent {
   id            String   @id @default(cuid())
   categoryGroup String // grupul de nivel superior (ex: "Suplimente și sănătate naturistă")
   category      String   @default("") // "" = pagina grupului; altfel numele subcategoriei (ex: "Miere de Manuka")
+  metaTitle     String? // titlu SEO optimizat pe cuvinte-cheie, fără numele site-ului (adăugat automat de template-ul din layout.tsx) — null = se cade pe numele brut al categoriei
   description   String // text SEO, afișat sub grila de produse
   faq           String // JSON: [{ "question": "...", "answer": "..." }]
   generatedBy   String   @default("ai") // "ai" | "manual"

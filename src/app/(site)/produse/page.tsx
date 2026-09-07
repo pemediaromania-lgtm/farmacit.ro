@@ -59,7 +59,7 @@ export async function generateMetadata({
   const { grup, categorie } = await searchParams;
   const categoryContent = await getCategoryContent(grup, categorie);
 
-  const title = categorie ?? grup ?? "Produse";
+  const title = categoryContent?.metaTitle ?? categorie ?? grup ?? "Produse";
   const description =
     categoryContent?.description.slice(0, 160) ??
     (categorie
