@@ -6,6 +6,9 @@ import { ProductImage } from "@/components/site/ProductImage";
 import { submitReviewAction } from "@/lib/actions/reviewActions";
 import { descriptionHasHtml, sanitizeProductDescription, stripHtmlToText } from "@/lib/productDescription";
 import { parseFaqJson } from "@/lib/faq";
+import { ManukaPromoBanner } from "@/components/site/ManukaPromoBanner";
+
+const MANUKA_CATEGORY = "Miere de Manuka";
 
 export const dynamic = "force-dynamic";
 
@@ -225,6 +228,12 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
                 </span>
               )}
             </p>
+          )}
+
+          {product.category === MANUKA_CATEGORY && (
+            <div className="mt-6">
+              <ManukaPromoBanner />
+            </div>
           )}
 
           {product.affiliateUrl && (

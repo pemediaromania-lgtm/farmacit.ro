@@ -6,6 +6,9 @@ import { prisma } from "@/lib/prisma";
 import { ProductImage } from "@/components/site/ProductImage";
 import { ALL_GROUPS } from "@/lib/productCategory";
 import { parseFaqJson } from "@/lib/faq";
+import { ManukaPromoBanner } from "@/components/site/ManukaPromoBanner";
+
+const MANUKA_CATEGORY = "Miere de Manuka";
 
 export const dynamic = "force-dynamic";
 
@@ -188,6 +191,12 @@ export default async function ProductsPage({
         <p className="text-sm text-brand-800/70 mb-4">
           {products.length} {products.length === 1 ? "rezultat" : "rezultate"} pentru „{query}”
         </p>
+      )}
+
+      {categorie === MANUKA_CATEGORY && (
+        <div className="mb-6">
+          <ManukaPromoBanner />
+        </div>
       )}
 
       {products.length === 0 ? (
