@@ -154,7 +154,11 @@ export default async function ProductsPage({
 
   const products = await prisma.product.findMany({
     where,
-    orderBy: { createdAt: "desc" },
+    // `id` ca tiebreaker: multe produse importate în același sync au createdAt
+    // identic, iar Postgres nu garantează o ordine stabilă între query-uri LIMIT/
+    // OFFSET separate doar pe o coloană cu valori egale — fără tiebreaker, aceleași
+    // produse pot apărea pe mai multe pagini, iar altele pe nicio pagină.
+    orderBy: [{ createdAt: "desc" }, { id: "asc" }],
     take: PAGE_SIZE,
     skip: (page - 1) * PAGE_SIZE,
   });
