@@ -14,13 +14,22 @@ export const dynamic = "force-dynamic";
 
 const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
 
+// Neschimbat față de comportamentul dinainte de paginare (era deja take: 60) — doar
+// acum ce era tăiat silențios la 60 devine paginile 2, 3, ... în loc de a fi pur și
+// simplu inaccesibil.
+const PAGE_SIZE = 60;
+
 // Păstrează termenul de căutare curent când se schimbă filtrul de categorie, ca
-// să nu se piardă căutarea la un click pe o pastilă de grup/subcategorie.
-function buildHref(params: { grup?: string; categorie?: string; q?: string }) {
+// să nu se piardă căutarea la un click pe o pastilă de grup/subcategorie. `page`
+// nu apare în URL pentru pagina 1 — un link către pagina 1 trebuie să fie identic
+// cu link-ul "curat" (fără ?page=1), altfel am avea două URL-uri pentru același
+// conținut.
+function buildHref(params: { grup?: string; categorie?: string; q?: string; page?: number }) {
   const search = new URLSearchParams();
   if (params.grup) search.set("grup", params.grup);
   if (params.categorie) search.set("categorie", params.categorie);
   if (params.q) search.set("q", params.q);
+  if (params.page && params.page > 1) search.set("page", String(params.page));
   const qs = search.toString();
   return qs ? `/produse?${qs}` : "/produse";
 }
@@ -31,12 +40,35 @@ function buildHref(params: { grup?: string; categorie?: string; q?: string }) {
 // trimit mereu cu grup+categorie împreună; fără normalizarea asta am avea două
 // URL-uri canonice diferite pentru exact același conținut (grup+categorie vs.
 // doar categorie, cum apare și în sitemap.ts).
-function buildCanonical(params: { grup?: string; categorie?: string }) {
+//
+// `page` INCLUS în canonical (auto-referențial pentru page > 1) — fiecare pagină
+// arată produse diferite, deci fiecare merită indexată separat de Google, nu
+// consolidată artificial pe pagina 1 (asta ar însemna ca produsele de pe paginile
+// 2+ să nu mai apară niciodată în căutări).
+function buildCanonical(params: { grup?: string; categorie?: string; page?: number }) {
   const search = new URLSearchParams();
   if (params.categorie) search.set("categorie", params.categorie);
   else if (params.grup) search.set("grup", params.grup);
+  if (params.page && params.page > 1) search.set("page", String(params.page));
   const qs = search.toString();
   return qs ? `/produse?${qs}` : "/produse";
+}
+
+/** Prima, ultima, curenta ± 2, cu "…" pentru golurile dintre ele — o listă lungă de
+ * pagini (ex: 40) nu trebuie afișată integral, doar vecinătatea utilă. */
+function getPageWindow(current: number, total: number): (number | "…")[] {
+  const pages = new Set<number>([1, total, current]);
+  for (let d = 1; d <= 2; d++) {
+    if (current - d >= 1) pages.add(current - d);
+    if (current + d <= total) pages.add(current + d);
+  }
+  const sorted = [...pages].sort((a, b) => a - b);
+  const result: (number | "…")[] = [];
+  for (let i = 0; i < sorted.length; i++) {
+    if (i > 0 && sorted[i] - sorted[i - 1] > 1) result.push("…");
+    result.push(sorted[i]);
+  }
+  return result;
 }
 
 // cache() dedupe query-ul între generateMetadata și componenta paginii (aceeași
@@ -57,12 +89,17 @@ async function getCategoryContent(grup?: string, categorie?: string) {
 export async function generateMetadata({
   searchParams,
 }: {
-  searchParams: Promise<{ grup?: string; categorie?: string }>;
+  searchParams: Promise<{ grup?: string; categorie?: string; page?: string }>;
 }): Promise<Metadata> {
-  const { grup, categorie } = await searchParams;
+  const { grup, categorie, page: pageParam } = await searchParams;
+  const page = Math.max(1, Number(pageParam) || 1);
   const categoryContent = await getCategoryContent(grup, categorie);
 
-  const title = categoryContent?.metaTitle ?? categorie ?? grup ?? "Produse";
+  const baseTitle = categoryContent?.metaTitle ?? categorie ?? grup ?? "Produse";
+  // Titluri unice per pagină — altfel Google vede același <title> pe zeci de
+  // pagini paginate ale aceleiași categorii, ceea ce le face să arate ca
+  // duplicate content în loc de pagini distincte.
+  const title = page > 1 ? `${baseTitle} — pagina ${page}` : baseTitle;
   const description =
     categoryContent?.description.slice(0, 160) ??
     (categorie
@@ -70,7 +107,7 @@ export async function generateMetadata({
       : grup
         ? `${grup}: produse recomandate de Farmatic.ro.`
         : "Produse farmaceutice și naturiste recomandate de Farmatic.ro.");
-  const canonical = buildCanonical({ grup, categorie });
+  const canonical = buildCanonical({ grup, categorie, page });
 
   return {
     title,
@@ -83,10 +120,11 @@ export async function generateMetadata({
 export default async function ProductsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ grup?: string; categorie?: string; q?: string }>;
+  searchParams: Promise<{ grup?: string; categorie?: string; q?: string; page?: string }>;
 }) {
-  const { grup, categorie, q } = await searchParams;
+  const { grup, categorie, q, page: pageParam } = await searchParams;
   const query = q?.trim();
+  const requestedPage = Math.max(1, Number(pageParam) || 1);
   const categoryContent = await getCategoryContent(grup, categorie);
   const faq = parseFaqJson(categoryContent?.faq ?? null);
 
@@ -98,12 +136,8 @@ export default async function ProductsPage({
     ...(query ? { OR: [{ name: { contains: query } }, { brand: { contains: query } }] } : {}),
   };
 
-  const [products, subcategories] = await Promise.all([
-    prisma.product.findMany({
-      where,
-      orderBy: { createdAt: "desc" },
-      take: 60,
-    }),
+  const [totalCount, subcategories] = await Promise.all([
+    prisma.product.count({ where }),
     grup
       ? prisma.product.findMany({
           where: { isActive: true, categoryGroup: grup, category: { not: null } },
@@ -112,6 +146,18 @@ export default async function ProductsPage({
         })
       : Promise.resolve([]),
   ]);
+
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+  // O pagină cerută dincolo de ultima (ex: link vechi salvat, sau catalogul s-a
+  // micșorat) cade pe ultima pagină reală în loc de a afișa o listă goală.
+  const page = Math.min(requestedPage, totalPages);
+
+  const products = await prisma.product.findMany({
+    where,
+    orderBy: { createdAt: "desc" },
+    take: PAGE_SIZE,
+    skip: (page - 1) * PAGE_SIZE,
+  });
 
   return (
     <div className="mx-auto max-w-5xl px-4 sm:px-6 py-12">
@@ -189,7 +235,7 @@ export default async function ProductsPage({
 
       {query && (
         <p className="text-sm text-brand-800/70 mb-4">
-          {products.length} {products.length === 1 ? "rezultat" : "rezultate"} pentru „{query}”
+          {totalCount} {totalCount === 1 ? "rezultat" : "rezultate"} pentru „{query}”
         </p>
       )}
 
@@ -229,6 +275,47 @@ export default async function ProductsPage({
             </Link>
           ))}
         </div>
+      )}
+
+      {totalPages > 1 && (
+        <nav aria-label="Paginare" className="mt-8 flex flex-wrap items-center justify-center gap-2">
+          {page > 1 && (
+            <Link
+              href={buildHref({ grup, categorie, q: query, page: page - 1 })}
+              className="rounded-full px-3 py-1.5 text-sm font-medium border border-brand-200 text-brand-700 hover:bg-brand-50"
+            >
+              ‹ Anterioară
+            </Link>
+          )}
+          {getPageWindow(page, totalPages).map((entry, i) =>
+            entry === "…" ? (
+              <span key={`gap-${i}`} className="px-1 text-sm text-brand-800/40">
+                …
+              </span>
+            ) : (
+              <Link
+                key={entry}
+                href={buildHref({ grup, categorie, q: query, page: entry })}
+                aria-current={entry === page ? "page" : undefined}
+                className={`rounded-full px-3.5 py-1.5 text-sm font-medium border ${
+                  entry === page
+                    ? "bg-brand-600 text-white border-brand-600"
+                    : "border-brand-200 text-brand-700 hover:bg-brand-50"
+                }`}
+              >
+                {entry}
+              </Link>
+            )
+          )}
+          {page < totalPages && (
+            <Link
+              href={buildHref({ grup, categorie, q: query, page: page + 1 })}
+              className="rounded-full px-3 py-1.5 text-sm font-medium border border-brand-200 text-brand-700 hover:bg-brand-50"
+            >
+              Următoare ›
+            </Link>
+          )}
+        </nav>
       )}
 
       {!query && categoryContent && (
