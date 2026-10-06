@@ -1,11 +1,21 @@
 import { cache } from "react";
 import Link from "next/link";
 import type { Metadata } from "next";
-import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { ProductImage } from "@/components/site/ProductImage";
 import { ALL_GROUPS } from "@/lib/productCategory";
 import { parseFaqJson } from "@/lib/faq";
+import {
+  getProductFacets,
+  DEFAULT_SORT,
+  hasRefinements,
+  parseProductFilters,
+  productOrderBy,
+  productsHref,
+  productWhere,
+  type RawSearchParams,
+} from "@/lib/productFilters";
+import { ActiveFilterChips, ProductFiltersPanel, ProductSortSelect } from "@/components/site/ProductFilters";
 import { ManukaPromoBanner } from "@/components/site/ManukaPromoBanner";
 
 const MANUKA_CATEGORY = "Miere de Manuka";
@@ -18,21 +28,6 @@ const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
 // acum ce era tăiat silențios la 60 devine paginile 2, 3, ... în loc de a fi pur și
 // simplu inaccesibil.
 const PAGE_SIZE = 60;
-
-// Păstrează termenul de căutare curent când se schimbă filtrul de categorie, ca
-// să nu se piardă căutarea la un click pe o pastilă de grup/subcategorie. `page`
-// nu apare în URL pentru pagina 1 — un link către pagina 1 trebuie să fie identic
-// cu link-ul "curat" (fără ?page=1), altfel am avea două URL-uri pentru același
-// conținut.
-function buildHref(params: { grup?: string; categorie?: string; q?: string; page?: number }) {
-  const search = new URLSearchParams();
-  if (params.grup) search.set("grup", params.grup);
-  if (params.categorie) search.set("categorie", params.categorie);
-  if (params.q) search.set("q", params.q);
-  if (params.page && params.page > 1) search.set("page", String(params.page));
-  const qs = search.toString();
-  return qs ? `/produse?${qs}` : "/produse";
-}
 
 // Canonical NU include `q` (căutarea liberă nu trebuie indexată ca pagină proprie).
 // Dacă e setată `categorie`, `grup` e omis din canonical — categoria identifică
@@ -52,6 +47,13 @@ function buildCanonical(params: { grup?: string; categorie?: string; page?: numb
   if (params.page && params.page > 1) search.set("page", String(params.page));
   const qs = search.toString();
   return qs ? `/produse?${qs}` : "/produse";
+}
+
+/** „1 produs”, „12 produse”, „32.929 de produse” — cu „de” după 20+ (ultimele două cifre 00 sau ≥ 20). */
+function productCountLabel(n: number): string {
+  if (n === 1) return "1 produs";
+  const rest = n % 100;
+  return `${n.toLocaleString("ro-RO")} ${n > 0 && (rest === 0 || rest >= 20) ? "de produse" : "produse"}`;
 }
 
 /** Prima, ultima, curenta ± 2, cu "…" pentru golurile dintre ele — o listă lungă de
@@ -89,10 +91,13 @@ async function getCategoryContent(grup?: string, categorie?: string) {
 export async function generateMetadata({
   searchParams,
 }: {
-  searchParams: Promise<{ grup?: string; categorie?: string; page?: string }>;
+  searchParams: Promise<RawSearchParams>;
 }): Promise<Metadata> {
-  const { grup, categorie, page: pageParam } = await searchParams;
-  const page = Math.max(1, Number(pageParam) || 1);
+  const filters = parseProductFilters(await searchParams);
+  const { grup, categorie, page } = filters;
+  // Combinațiile de filtre/sortare nu se indexează (ar fi mii de pagini aproape identice);
+  // canonical-ul lor trimite la lista categoriei.
+  const refined = hasRefinements(filters);
   const categoryContent = await getCategoryContent(grup, categorie);
 
   const baseTitle = categoryContent?.metaTitle ?? categorie ?? grup ?? "Produse";
@@ -107,12 +112,13 @@ export async function generateMetadata({
       : grup
         ? `${grup}: produse recomandate de Farmatic.ro.`
         : "Produse farmaceutice și naturiste recomandate de Farmatic.ro.");
-  const canonical = buildCanonical({ grup, categorie, page });
+  const canonical = buildCanonical({ grup, categorie, page: refined ? 1 : page });
 
   return {
     title,
     description,
     alternates: { canonical },
+    ...(refined ? { robots: { index: false, follow: true } } : {}),
     openGraph: { title, description, url: `${baseUrl}${canonical}`, type: "website" },
   };
 }
@@ -120,23 +126,16 @@ export async function generateMetadata({
 export default async function ProductsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ grup?: string; categorie?: string; q?: string; page?: string }>;
+  searchParams: Promise<RawSearchParams>;
 }) {
-  const { grup, categorie, q, page: pageParam } = await searchParams;
-  const query = q?.trim();
-  const requestedPage = Math.max(1, Number(pageParam) || 1);
+  const filters = parseProductFilters(await searchParams);
+  const { grup, categorie, q: query, page: requestedPage } = filters;
   const categoryContent = await getCategoryContent(grup, categorie);
   const faq = parseFaqJson(categoryContent?.faq ?? null);
 
-  // O subcategorie selectată implică grupul ei — dacă vine direct un link vechi
-  // cu doar `categorie` (ex: din pagina de produs), nu mai cerem și `grup`.
-  const where: Prisma.ProductWhereInput = {
-    isActive: true,
-    ...(categorie ? { category: categorie } : grup ? { categoryGroup: grup } : {}),
-    ...(query ? { OR: [{ name: { contains: query } }, { brand: { contains: query } }] } : {}),
-  };
+  const where = productWhere(filters);
 
-  const [totalCount, subcategories] = await Promise.all([
+  const [totalCount, subcategories, facets] = await Promise.all([
     prisma.product.count({ where }),
     grup
       ? prisma.product.findMany({
@@ -145,6 +144,7 @@ export default async function ProductsPage({
           select: { category: true },
         })
       : Promise.resolve([]),
+    getProductFacets(filters),
   ]);
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
@@ -154,14 +154,20 @@ export default async function ProductsPage({
 
   const products = await prisma.product.findMany({
     where,
-    // `id` ca tiebreaker: multe produse importate în același sync au createdAt
-    // identic, iar Postgres nu garantează o ordine stabilă între query-uri LIMIT/
-    // OFFSET separate doar pe o coloană cu valori egale — fără tiebreaker, aceleași
-    // produse pot apărea pe mai multe pagini, iar altele pe nicio pagină.
-    orderBy: [{ createdAt: "desc" }, { id: "asc" }],
+    orderBy: productOrderBy(filters.sortare),
     take: PAGE_SIZE,
     skip: (page - 1) * PAGE_SIZE,
   });
+
+  const carried = {
+    q: query,
+    sortare: filters.sortare,
+    pretMin: filters.pretMin,
+    pretMax: filters.pretMax,
+    reducere: filters.reducere,
+    magazine: filters.magazine,
+  };
+  const pageHref = (p: number) => productsHref({ ...filters, page: p });
 
   return (
     <div className="mx-auto max-w-5xl px-4 sm:px-6 py-12">
@@ -171,6 +177,7 @@ export default async function ProductsPage({
       <form action="/produse" method="get" className="mb-6 max-w-md">
         {grup && <input type="hidden" name="grup" value={grup} />}
         {categorie && <input type="hidden" name="categorie" value={categorie} />}
+        {filters.sortare !== DEFAULT_SORT && <input type="hidden" name="sortare" value={filters.sortare} />}
         <input
           type="search"
           name="q"
@@ -182,7 +189,7 @@ export default async function ProductsPage({
 
       <div className="flex flex-wrap gap-2 mb-4">
         <Link
-          href={buildHref({ q: query })}
+          href={productsHref(carried)}
           className={`rounded-full px-4 py-1.5 text-sm font-medium border ${
             !grup && !categorie
               ? "bg-brand-600 text-white border-brand-600"
@@ -194,7 +201,7 @@ export default async function ProductsPage({
         {ALL_GROUPS.map((groupName) => (
           <Link
             key={groupName}
-            href={buildHref({ grup: groupName, q: query })}
+            href={productsHref({ ...carried, grup: groupName })}
             className={`rounded-full px-4 py-1.5 text-sm font-medium border ${
               grup === groupName
                 ? "bg-brand-600 text-white border-brand-600"
@@ -209,7 +216,7 @@ export default async function ProductsPage({
       {grup && subcategories.length > 0 && (
         <div className="flex flex-wrap gap-2 mb-8">
           <Link
-            href={buildHref({ grup, q: query })}
+            href={productsHref({ ...carried, grup })}
             className={`rounded-full px-3 py-1 text-xs font-medium border ${
               !categorie
                 ? "bg-brand-100 text-brand-800 border-brand-200"
@@ -223,7 +230,7 @@ export default async function ProductsPage({
               c.category && (
                 <Link
                   key={c.category}
-                  href={buildHref({ grup, categorie: c.category, q: query })}
+                  href={productsHref({ ...carried, grup, categorie: c.category })}
                   className={`rounded-full px-3 py-1 text-xs font-medium border ${
                     categorie === c.category
                       ? "bg-brand-100 text-brand-800 border-brand-200"
@@ -237,92 +244,118 @@ export default async function ProductsPage({
         </div>
       )}
 
-      {query && (
-        <p className="text-sm text-brand-800/70 mb-4">
-          {totalCount} {totalCount === 1 ? "rezultat" : "rezultate"} pentru „{query}”
-        </p>
-      )}
-
       {categorie === MANUKA_CATEGORY && (
         <div className="mb-6">
           <ManukaPromoBanner />
         </div>
       )}
 
-      {products.length === 0 ? (
-        <p className="text-brand-800/70">
-          {query ? `Niciun produs găsit pentru „${query}”.` : "Nu există încă produse în această categorie."}
-        </p>
-      ) : (
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {products.map((product) => (
-            <Link
-              key={product.id}
-              href={`/produse/${product.slug}`}
-              className="group rounded-2xl border border-brand-100 overflow-hidden hover:shadow-lg transition-shadow bg-white"
-            >
-              <div className="relative h-48 sm:h-40 lg:h-32 w-full bg-white flex items-center justify-center overflow-hidden">
-                <ProductImage
-                  src={product.imageUrl}
-                  alt={product.name}
-                  className="max-h-full max-w-full object-contain p-4 group-hover:scale-105 transition-transform"
-                />
-              </div>
-              <div className="p-4">
-                <h2 className="font-medium text-brand-900 text-sm line-clamp-2">{product.name}</h2>
-                {product.price != null && (
-                  <p className="mt-2 font-semibold text-brand-700">
-                    {product.price.toFixed(2)} {product.currency}
-                  </p>
-                )}
-              </div>
-            </Link>
-          ))}
+      <div className="lg:grid lg:grid-cols-[15rem_minmax(0,1fr)] lg:items-start lg:gap-8">
+        <ProductFiltersPanel filters={filters} facets={facets} />
+
+        <div>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-brand-800/70">
+              {totalCount === 0 ? "Niciun produs" : productCountLabel(totalCount)}
+              {query && <> pentru „{query}”</>}
+            </p>
+            <ProductSortSelect sortare={filters.sortare} />
+          </div>
+          <ActiveFilterChips filters={filters} />
+
+          {products.length === 0 ? (
+            <p className="text-brand-800/70">
+              {hasRefinements(filters)
+                ? "Niciun produs nu se potrivește filtrelor alese."
+                : query
+                  ? `Niciun produs găsit pentru „${query}”.`
+                  : "Nu există încă produse în această categorie."}
+            </p>
+          ) : (
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {products.map((product) => (
+                <Link
+                  key={product.id}
+                  href={`/produse/${product.slug}`}
+                  className="group rounded-2xl border border-brand-100 overflow-hidden hover:shadow-lg transition-shadow bg-white"
+                >
+                  <div className="relative h-48 sm:h-40 lg:h-32 w-full bg-white flex items-center justify-center overflow-hidden">
+                    {product.price != null && product.oldPrice != null && product.oldPrice > product.price && (
+                      <span className="absolute left-2 top-2 z-10 rounded-full bg-red-600 px-2 py-0.5 text-xs font-bold text-white">
+                        -{Math.round((1 - product.price / product.oldPrice) * 100)}%
+                      </span>
+                    )}
+                    <ProductImage
+                      src={product.imageUrl}
+                      alt={product.name}
+                      className="max-h-full max-w-full object-contain p-4 group-hover:scale-105 transition-transform"
+                    />
+                  </div>
+                  <div className="p-4">
+                    {product.brand && (
+                      <p className="mb-1 truncate text-xs font-medium text-brand-600">{product.brand}</p>
+                    )}
+                    <h2 className="font-medium text-brand-900 text-sm line-clamp-2">{product.name}</h2>
+                    {product.price != null && (
+                      <p className="mt-2 flex flex-wrap items-baseline gap-x-2 font-semibold text-brand-700">
+                        {product.price.toFixed(2)} {product.currency}
+                        {product.oldPrice != null && product.oldPrice > product.price && (
+                          <span className="text-xs font-normal text-brand-800/50 line-through">
+                            {product.oldPrice.toFixed(2)}
+                          </span>
+                        )}
+                      </p>
+                    )}
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+
+          {totalPages > 1 && (
+            <nav aria-label="Paginare" className="mt-8 flex flex-wrap items-center justify-center gap-2">
+              {page > 1 && (
+                <Link
+                  href={pageHref(page - 1)}
+                  className="rounded-full px-3 py-1.5 text-sm font-medium border border-brand-200 text-brand-700 hover:bg-brand-50"
+                >
+                  ‹ Anterioară
+                </Link>
+              )}
+              {getPageWindow(page, totalPages).map((entry, i) =>
+                entry === "…" ? (
+                  <span key={`gap-${i}`} className="px-1 text-sm text-brand-800/40">
+                    …
+                  </span>
+                ) : (
+                  <Link
+                    key={entry}
+                    href={pageHref(entry)}
+                    aria-current={entry === page ? "page" : undefined}
+                    className={`rounded-full px-3.5 py-1.5 text-sm font-medium border ${
+                      entry === page
+                        ? "bg-brand-600 text-white border-brand-600"
+                        : "border-brand-200 text-brand-700 hover:bg-brand-50"
+                    }`}
+                  >
+                    {entry}
+                  </Link>
+                )
+              )}
+              {page < totalPages && (
+                <Link
+                  href={pageHref(page + 1)}
+                  className="rounded-full px-3 py-1.5 text-sm font-medium border border-brand-200 text-brand-700 hover:bg-brand-50"
+                >
+                  Următoare ›
+                </Link>
+              )}
+            </nav>
+          )}
         </div>
-      )}
+      </div>
 
-      {totalPages > 1 && (
-        <nav aria-label="Paginare" className="mt-8 flex flex-wrap items-center justify-center gap-2">
-          {page > 1 && (
-            <Link
-              href={buildHref({ grup, categorie, q: query, page: page - 1 })}
-              className="rounded-full px-3 py-1.5 text-sm font-medium border border-brand-200 text-brand-700 hover:bg-brand-50"
-            >
-              ‹ Anterioară
-            </Link>
-          )}
-          {getPageWindow(page, totalPages).map((entry, i) =>
-            entry === "…" ? (
-              <span key={`gap-${i}`} className="px-1 text-sm text-brand-800/40">
-                …
-              </span>
-            ) : (
-              <Link
-                key={entry}
-                href={buildHref({ grup, categorie, q: query, page: entry })}
-                aria-current={entry === page ? "page" : undefined}
-                className={`rounded-full px-3.5 py-1.5 text-sm font-medium border ${
-                  entry === page
-                    ? "bg-brand-600 text-white border-brand-600"
-                    : "border-brand-200 text-brand-700 hover:bg-brand-50"
-                }`}
-              >
-                {entry}
-              </Link>
-            )
-          )}
-          {page < totalPages && (
-            <Link
-              href={buildHref({ grup, categorie, q: query, page: page + 1 })}
-              className="rounded-full px-3 py-1.5 text-sm font-medium border border-brand-200 text-brand-700 hover:bg-brand-50"
-            >
-              Următoare ›
-            </Link>
-          )}
-        </nav>
-      )}
-
-      {!query && categoryContent && (
+      {!query && !hasRefinements(filters) && categoryContent && (
         <section className="mt-14">
           {faq.length > 0 && (
             <script
