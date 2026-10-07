@@ -236,13 +236,17 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
             </div>
           )}
 
+          {/* <a> simplu, nu <Link>: Link preîncarcă ruta /go/ (care numără click-ul și redirecționează)
+              imediat ce butonul apare pe ecran, iar la click o cerea de două ori — contorul număra
+              vizualizări, nu click-uri. „sponsored” marchează linkul de afiliere pentru Google. */}
           {product.affiliateUrl && (
-            <Link
+            <a
               href={`/go/${product.slug}`}
+              rel="sponsored nofollow"
               className="mt-6 inline-block rounded-full bg-brand-600 px-8 py-3 text-white font-medium hover:bg-brand-700 transition-colors"
             >
               Cumpără acum
-            </Link>
+            </a>
           )}
           {product.merchant && (
             <p className="mt-3 text-xs text-brand-700/70">Disponibil prin {product.merchant}</p>
