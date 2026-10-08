@@ -17,6 +17,8 @@ import {
 } from "@/lib/productFilters";
 import { ActiveFilterChips, ProductFiltersPanel, ProductSortSelect } from "@/components/site/ProductFilters";
 import { ManukaPromoBanner } from "@/components/site/ManukaPromoBanner";
+import { ApilandBanner } from "@/components/site/ApilandBanner";
+import { isBeeProduct } from "@/lib/beeProducts";
 
 const MANUKA_CATEGORY = "Miere de Manuka";
 
@@ -247,6 +249,12 @@ export default async function ProductsPage({
       {categorie === MANUKA_CATEGORY && (
         <div className="mb-6">
           <ManukaPromoBanner />
+        </div>
+      )}
+
+      {query && isBeeProduct(query) && (
+        <div className="mb-6">
+          <ApilandBanner />
         </div>
       )}
 

@@ -7,6 +7,8 @@ import { submitReviewAction } from "@/lib/actions/reviewActions";
 import { descriptionHasHtml, sanitizeProductDescription, stripHtmlToText } from "@/lib/productDescription";
 import { parseFaqJson } from "@/lib/faq";
 import { ManukaPromoBanner } from "@/components/site/ManukaPromoBanner";
+import { ApilandBanner } from "@/components/site/ApilandBanner";
+import { isBeeProduct } from "@/lib/beeProducts";
 
 const MANUKA_CATEGORY = "Miere de Manuka";
 
@@ -261,6 +263,14 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
           )}
         </div>
       </div>
+
+      {/* Lățime completă, sub blocul produsului — nu între preț și „Cumpără acum”, unde ar
+          împinge în jos butonul propriu al produsului (alt magazin, alt comision). */}
+      {isBeeProduct(product.name, product.category) && (
+        <div className="mt-10">
+          <ApilandBanner />
+        </div>
+      )}
 
       {product.description && (
         <section className="mt-12">

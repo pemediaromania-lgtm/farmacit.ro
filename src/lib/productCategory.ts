@@ -334,7 +334,7 @@ const FEED_CATEGORY_OVERRIDES: Record<string, { group: string; name: string }> =
  * fără diacritice/umlauturi, altfel un cuvânt-cheie scris fără diacritice
  * (convenția folosită mai sus) nu s-ar potrivi cu un nume care le are.
  */
-function stripDiacritics(text: string): string {
+export function stripDiacritics(text: string): string {
   return text.normalize("NFD").replace(/[̀-ͯ]/g, "");
 }
 
