@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { NetworkSites } from "@/components/site/NetworkSites";
 
 export function SiteFooter() {
   return (
@@ -18,6 +19,7 @@ export function SiteFooter() {
             Confidențialitate
           </Link>
         </nav>
+        <NetworkSites current="farmatic" />
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-brand-100 pt-4">
           <p>&copy; {new Date().getFullYear()} Farmatic.ro — sănătate și naturețe, pe înțelesul tuturor.</p>
           <p className="text-brand-700/80 text-center sm:text-right">
