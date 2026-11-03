@@ -4,7 +4,10 @@ import Link from "next/link";
 import Image from "next/image";
 import { prisma } from "@/lib/prisma";
 import { ProductImage } from "@/components/site/ProductImage";
+import { BlackFridayBadge } from "@/components/site/BlackFridayBadge";
 import { categoryImagePublicPath, categoryImageSlug } from "@/lib/productCategory";
+import { BLACK_FRIDAY_MERCHANT, blackFridayActive } from "@/lib/blackFriday";
+import { merchantLabel } from "@/lib/productFilters";
 
 export const dynamic = "force-dynamic";
 
@@ -34,7 +37,7 @@ const FEATURED_GROUPS = [
 const PRODUCTS_PER_FEATURED_GROUP = 3;
 
 export default async function HomePage() {
-  const [articles, featuredByGroup, groupCounts] = await Promise.all([
+  const [articles, featuredByGroup, groupCounts, blackFridayProduct] = await Promise.all([
     prisma.article.findMany({
       where: { status: "published" },
       orderBy: { publishedAt: "desc" },
@@ -55,7 +58,15 @@ export default async function HomePage() {
       where: { isActive: true, categoryGroup: { not: null } },
       _count: { _all: true },
     }),
+    // Anunțul Black Friday apare doar cât timp magazinul are produse active în catalog.
+    blackFridayActive()
+      ? prisma.product.findFirst({
+          where: { isActive: true, merchant: { contains: BLACK_FRIDAY_MERCHANT, mode: "insensitive" } },
+          select: { merchant: true },
+        })
+      : null,
   ]);
+  const blackFridayMerchant = blackFridayProduct?.merchant ? merchantLabel(blackFridayProduct.merchant) : null;
 
   // Interclasez grupurile (3 din primul, 3 din al doilea, ...) în loc să le pun în
   // bloc, ca diversitatea de categorii să fie vizibilă chiar în primul rând de produse.
@@ -80,6 +91,19 @@ export default async function HomePage() {
     <div>
       <section className="bg-gradient-to-b from-brand-50 to-white">
         <div className="mx-auto max-w-5xl px-4 sm:px-6 py-20 text-center">
+          {blackFridayMerchant && (
+            <div className="mb-4">
+              <Link
+                href={`/produse?magazin=${encodeURIComponent(blackFridayMerchant)}`}
+                className="inline-flex items-center gap-2 rounded-full bg-black py-1.5 pl-1.5 pr-4 text-sm font-semibold text-white shadow-md hover:bg-gray-800 transition-colors"
+              >
+                <span className="rounded-full bg-amber-400 px-2.5 py-0.5 text-xs font-extrabold uppercase tracking-wide text-black">
+                  Black Friday
+                </span>
+                Reduceri la Vegis — vezi produsele →
+              </Link>
+            </div>
+          )}
           <span className="inline-block rounded-full bg-brand-100 text-brand-700 text-xs font-semibold px-3 py-1 mb-4">
             Sănătate • Natură • Încredere
           </span>
@@ -225,6 +249,7 @@ export default async function HomePage() {
                   className="group rounded-2xl border border-brand-100 overflow-hidden hover:shadow-lg transition-shadow bg-white"
                 >
                   <div className="relative h-48 sm:h-40 lg:h-32 w-full bg-white flex items-center justify-center overflow-hidden">
+                    <BlackFridayBadge merchant={product.merchant} className="absolute right-2 top-2" />
                     <ProductImage
                       src={product.imageUrl}
                       alt={product.name}

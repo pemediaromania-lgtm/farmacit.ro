@@ -3,6 +3,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { ProductImage } from "@/components/site/ProductImage";
+import { BlackFridayBadge } from "@/components/site/BlackFridayBadge";
 import { ALL_GROUPS } from "@/lib/productCategory";
 import { parseFaqJson } from "@/lib/faq";
 import {
@@ -293,6 +294,7 @@ export default async function ProductsPage({
                         -{Math.round((1 - product.price / product.oldPrice) * 100)}%
                       </span>
                     )}
+                    <BlackFridayBadge merchant={product.merchant} className="absolute right-2 top-2" />
                     <ProductImage
                       src={product.imageUrl}
                       alt={product.name}

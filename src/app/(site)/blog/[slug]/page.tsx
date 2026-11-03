@@ -5,6 +5,7 @@ import type { Metadata } from "next";
 import ReactMarkdown from "react-markdown";
 import { prisma } from "@/lib/prisma";
 import { ProductImage } from "@/components/site/ProductImage";
+import { BlackFridayBadge } from "@/components/site/BlackFridayBadge";
 import { extractToc } from "@/lib/articleToc";
 import { submitArticleCommentAction } from "@/lib/actions/articleCommentActions";
 import { parseFaqJson } from "@/lib/faq";
@@ -214,7 +215,8 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
                 href={`/produse/${product.slug}`}
                 className="rounded-2xl border border-brand-100 bg-white p-3 hover:border-brand-300 transition-colors"
               >
-                <div className="aspect-square rounded-xl bg-brand-50 overflow-hidden mb-2">
+                <div className="relative aspect-square rounded-xl bg-brand-50 overflow-hidden mb-2">
+                  <BlackFridayBadge merchant={product.merchant} size="sm" className="absolute right-1.5 top-1.5" />
                   <ProductImage src={product.imageUrl} alt={product.name} className="h-full w-full object-contain p-3" />
                 </div>
                 <p className="text-xs font-medium text-brand-900 line-clamp-2">{product.name}</p>

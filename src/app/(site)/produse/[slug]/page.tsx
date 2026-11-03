@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { ProductImage } from "@/components/site/ProductImage";
+import { BlackFridayBadge } from "@/components/site/BlackFridayBadge";
 import { submitReviewAction } from "@/lib/actions/reviewActions";
 import { descriptionHasHtml, sanitizeProductDescription, stripHtmlToText } from "@/lib/productDescription";
 import { parseFaqJson } from "@/lib/faq";
@@ -198,6 +199,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
 
       <div className="grid gap-8 sm:grid-cols-2 items-start">
         <div className="relative aspect-square w-full rounded-2xl bg-brand-50 overflow-hidden">
+          <BlackFridayBadge merchant={product.merchant} size="lg" className="absolute left-3 top-3" />
           <ProductImage src={product.imageUrl} alt={product.name} className="h-full w-full object-contain p-8" />
         </div>
         <div>
