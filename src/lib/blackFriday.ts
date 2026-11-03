@@ -1,19 +1,57 @@
-// Black Friday 2026 la magazinele partenere: insigna pe produsele lor și anunțul de pe prima pagină.
-// Cerut de Paul (2026-11-03) pentru Vegis. Se stinge singur după 30 noiembrie 2026 (paginile sunt force-dynamic).
-const ENDS_AT = Date.parse("2026-12-01T00:00:00+02:00");
+// Black Friday 2026 la magazinele partenere: sigla „Black Friday” pe produsele din campania lor (BlackFridayBadge).
+// Perioadele și regulile sunt luate de pe site-urile partenerilor pe 2026-11-03 (regulamente, bannere). Fiecare
+// campanie se stinge singură la `until` (paginile sunt force-dynamic); unde partenerul n-a anunțat sfârșitul, 30 nov.
 
-/** Fragmente din numele magazinului (din feed vine „vegis.ro”, „www.vegis.ro/”, „Vegis” etc.). */
-const MERCHANTS = ["vegis"];
+type Campaign = {
+  /** Fragment din Product.merchant (din feed vine „vegis.ro”, „www.vegis.ro/”, „Vegis” etc.). */
+  merchant: string;
+  /** Începutul campaniei; lipsă = deja începută. */
+  from?: string;
+  /** Sfârșitul campaniei (exclusiv). */
+  until: string;
+  /**
+   * Ce produse intră: toate (implicit), doar cele reduse în feed (campanie pe produse selectate — reducerea din feed
+   * e singurul semn pe care-l avem) sau doar un brand.
+   */
+  only?: "reduse" | { brand: string };
+};
 
-/** Fragmentul folosit în căutarea din baza de date pentru anunțul de pe prima pagină. */
-export const BLACK_FRIDAY_MERCHANT = MERCHANTS[0];
+const CAMPAIGNS: Campaign[] = [
+  // Cerut de Paul; site-ul Vegis blochează verificarea automată (403), sfârșitul nu-l știm.
+  { merchant: "vegis", until: "2026-12-01T00:00:00+02:00" },
+  // Regulament: „BLACK FRIDAY - 10% discount pentru toate produsele Brainmax - 2.11 - 8.11.2026”.
+  { merchant: "brainmarket", until: "2026-11-09T00:00:00+02:00", only: { brand: "brainmax" } },
+  // „Din 6 noiembrie intră la reducere chiloții menstruali, discurile, costumele de baie...”; feed-ul n-are preț vechi.
+  { merchant: "femieko", from: "2026-11-06T00:00:00+02:00", until: "2026-12-01T00:00:00+02:00" },
+];
 
-export function blackFridayActive(): boolean {
-  return Date.now() < ENDS_AT;
+export type BlackFridayProduct = {
+  merchant: string | null;
+  brand: string | null;
+  price: number | null;
+  oldPrice: number | null;
+};
+
+function running(c: Campaign): boolean {
+  const now = Date.now();
+  return (!c.from || now >= Date.parse(c.from)) && now < Date.parse(c.until);
 }
 
-export function isBlackFridayProduct(merchant: string | null | undefined): boolean {
-  if (!merchant || !blackFridayActive()) return false;
+function campaignFor(merchant: string | null): Campaign | undefined {
+  if (!merchant) return undefined;
   const m = merchant.toLowerCase();
-  return MERCHANTS.some((part) => m.includes(part));
+  return CAMPAIGNS.find((c) => m.includes(c.merchant) && running(c));
+}
+
+/** Dacă magazinul are acum Black Friday (ex. pentru anunțul de pe prima pagină). */
+export function campaignActive(merchant: string): boolean {
+  return campaignFor(merchant) !== undefined;
+}
+
+export function isBlackFridayProduct(p: BlackFridayProduct): boolean {
+  const c = campaignFor(p.merchant);
+  if (!c) return false;
+  if (c.only === "reduse") return p.price != null && p.oldPrice != null && p.oldPrice > p.price;
+  if (c.only) return (p.brand ?? "").toLowerCase().includes(c.only.brand);
+  return true;
 }

@@ -1,4 +1,4 @@
-import { isBlackFridayProduct } from "@/lib/blackFriday";
+import { isBlackFridayProduct, type BlackFridayProduct } from "@/lib/blackFriday";
 
 const SIZES = {
   sm: "rounded px-1.5 py-0.5 text-[10px]",
@@ -7,19 +7,19 @@ const SIZES = {
 };
 
 /**
- * Sigla „Black Friday” pusă peste poza produselor de la magazinele din campanie (vezi lib/blackFriday).
+ * Sigla „Black Friday” pusă peste poza produselor din campaniile partenerilor (vezi lib/blackFriday).
  * Poziția o dă pagina prin `className` (pe carduri, reducerea ocupă deja colțul din stânga).
  */
 export function BlackFridayBadge({
-  merchant,
+  product,
   size = "md",
   className = "",
 }: {
-  merchant: string | null;
+  product: BlackFridayProduct;
   size?: keyof typeof SIZES;
   className?: string;
 }) {
-  if (!isBlackFridayProduct(merchant)) return null;
+  if (!isBlackFridayProduct(product)) return null;
   return (
     <span className={`z-10 bg-black font-extrabold uppercase tracking-wide text-white shadow ${SIZES[size]} ${className}`}>
       Black <span className="text-amber-400">Friday</span>

@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { ProductImage } from "@/components/site/ProductImage";
 import { BlackFridayBadge } from "@/components/site/BlackFridayBadge";
 import { categoryImagePublicPath, categoryImageSlug } from "@/lib/productCategory";
-import { BLACK_FRIDAY_MERCHANT, blackFridayActive } from "@/lib/blackFriday";
+import { campaignActive } from "@/lib/blackFriday";
 import { merchantLabel } from "@/lib/productFilters";
 
 export const dynamic = "force-dynamic";
@@ -59,9 +59,9 @@ export default async function HomePage() {
       _count: { _all: true },
     }),
     // Anunțul Black Friday apare doar cât timp magazinul are produse active în catalog.
-    blackFridayActive()
+    campaignActive("vegis")
       ? prisma.product.findFirst({
-          where: { isActive: true, merchant: { contains: BLACK_FRIDAY_MERCHANT, mode: "insensitive" } },
+          where: { isActive: true, merchant: { contains: "vegis", mode: "insensitive" } },
           select: { merchant: true },
         })
       : null,
@@ -249,7 +249,7 @@ export default async function HomePage() {
                   className="group rounded-2xl border border-brand-100 overflow-hidden hover:shadow-lg transition-shadow bg-white"
                 >
                   <div className="relative h-48 sm:h-40 lg:h-32 w-full bg-white flex items-center justify-center overflow-hidden">
-                    <BlackFridayBadge merchant={product.merchant} className="absolute right-2 top-2" />
+                    <BlackFridayBadge product={product} className="absolute right-2 top-2" />
                     <ProductImage
                       src={product.imageUrl}
                       alt={product.name}

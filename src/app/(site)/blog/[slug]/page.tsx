@@ -216,7 +216,7 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
                 className="rounded-2xl border border-brand-100 bg-white p-3 hover:border-brand-300 transition-colors"
               >
                 <div className="relative aspect-square rounded-xl bg-brand-50 overflow-hidden mb-2">
-                  <BlackFridayBadge merchant={product.merchant} size="sm" className="absolute right-1.5 top-1.5" />
+                  <BlackFridayBadge product={product} size="sm" className="absolute right-1.5 top-1.5" />
                   <ProductImage src={product.imageUrl} alt={product.name} className="h-full w-full object-contain p-3" />
                 </div>
                 <p className="text-xs font-medium text-brand-900 line-clamp-2">{product.name}</p>

@@ -294,7 +294,7 @@ export default async function ProductsPage({
                         -{Math.round((1 - product.price / product.oldPrice) * 100)}%
                       </span>
                     )}
-                    <BlackFridayBadge merchant={product.merchant} className="absolute right-2 top-2" />
+                    <BlackFridayBadge product={product} className="absolute right-2 top-2" />
                     <ProductImage
                       src={product.imageUrl}
                       alt={product.name}
