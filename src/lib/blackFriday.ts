@@ -1,35 +1,82 @@
-// Black Friday 2026 la magazinele partenere: sigla „Black Friday” pe produsele din campania lor (BlackFridayBadge).
-// Perioadele și regulile sunt luate de pe site-urile partenerilor pe 2026-11-03 (regulamente, bannere). Fiecare
-// campanie se stinge singură la `until` (paginile sunt force-dynamic); unde partenerul n-a anunțat sfârșitul, 30 nov.
+// Black Friday 2026 la magazinele partenere: sigla „Black Friday” pe produsele din campania lor (BlackFridayBadge)
+// și bannerul de pe prima pagină (BlackFridayOffers). Datele vin din promoțiile 2Performant (export CSV de la Paul,
+// 2026-11-03) și, unde lipsesc acolo, de pe site-urile partenerilor. Fiecare campanie se stinge singură la `until`
+// (paginile sunt force-dynamic); unde partenerul n-a anunțat sfârșitul, 30 noiembrie.
 
 type Campaign = {
   /** Fragment din Product.merchant (din feed vine „vegis.ro”, „www.vegis.ro/”, „Vegis” etc.). */
   merchant: string;
+  /** Numele magazinului, în banner. */
+  name: string;
+  /** Oferta pe scurt, cum o anunță magazinul. */
+  offer: string;
+  /** Perioada, cum apare în banner. */
+  period: string;
+  /** Cod de reducere dat de magazin afiliaților, cu condițiile lui. */
+  code?: string;
+  codeNote?: string;
   /** Începutul campaniei; lipsă = deja începută. */
   from?: string;
   /** Sfârșitul campaniei (exclusiv). */
   until: string;
   /**
-   * Ce produse intră: toate (implicit), doar cele reduse în feed (campanie pe produse selectate — reducerea din feed
-   * e singurul semn pe care-l avem) sau doar un brand.
+   * Ce produse primesc sigla: toate (implicit), doar cele reduse în feed (campanie pe produse selectate — reducerea
+   * din feed e singurul semn pe care-l avem) sau doar un brand.
    */
   only?: "reduse" | { brand: string };
 };
 
 const CAMPAIGNS: Campaign[] = [
-  // Cerut de Paul; site-ul Vegis blochează verificarea automată (403), sfârșitul nu-l știm.
-  { merchant: "vegis", until: "2026-12-01T00:00:00+02:00" },
-  // Regulament: „BLACK FRIDAY - 10% discount pentru toate produsele Brainmax - 2.11 - 8.11.2026”.
-  { merchant: "brainmarket", until: "2026-11-09T00:00:00+02:00", only: { brand: "brainmax" } },
-  // „Din 6 noiembrie intră la reducere chiloții menstruali, discurile, costumele de baie...”; feed-ul n-are preț vechi.
-  { merchant: "femieko", from: "2026-11-06T00:00:00+02:00", until: "2026-12-01T00:00:00+02:00" },
+  {
+    merchant: "vegis",
+    name: "Vegis",
+    offer: "Reduceri la suplimente, produse bio, apicole, uleiuri esențiale și cosmetice",
+    period: "6–22 noiembrie",
+    from: "2026-11-06T08:30:00+02:00",
+    until: "2026-11-23T00:00:00+02:00",
+  },
+  {
+    merchant: "brainmarket",
+    name: "BrainMarket",
+    offer: "−10% la toate produsele BrainMax",
+    period: "2–8 noiembrie",
+    until: "2026-11-09T00:00:00+02:00",
+    only: { brand: "brainmax" },
+  },
+  {
+    merchant: "vetro",
+    name: "Vetro",
+    offer: "Până la −19% la toate produsele cu preț întreg, −9% la cele deja reduse",
+    period: "6–8 noiembrie",
+    code: "VED5",
+    codeNote: "−5% în plus la comenzile de minimum 300 lei + TVA",
+    from: "2026-11-06T00:00:00+02:00",
+    until: "2026-11-09T00:00:00+02:00",
+  },
+  // Nu e în promoțiile 2Performant; de pe femieko.ro: „Din 6 noiembrie intră la reducere...”. Feed-ul n-are preț vechi.
+  {
+    merchant: "femieko",
+    name: "Femieko",
+    offer: "Reduceri la chiloți menstruali, discuri și costume de baie",
+    period: "din 6 noiembrie",
+    from: "2026-11-06T00:00:00+02:00",
+    until: "2026-12-01T00:00:00+02:00",
+  },
 ];
+
+/** Cu câte zile înainte de start apare o campanie în banner, ca anunț. */
+const ANNOUNCE_DAYS = 4;
+const DAY = 24 * 60 * 60 * 1000;
 
 export type BlackFridayProduct = {
   merchant: string | null;
   brand: string | null;
   price: number | null;
   oldPrice: number | null;
+};
+
+export type BannerCampaign = Pick<Campaign, "merchant" | "name" | "offer" | "period" | "code" | "codeNote"> & {
+  started: boolean;
 };
 
 function running(c: Campaign): boolean {
@@ -43,15 +90,26 @@ function campaignFor(merchant: string | null): Campaign | undefined {
   return CAMPAIGNS.find((c) => m.includes(c.merchant) && running(c));
 }
 
-/** Dacă magazinul are acum Black Friday (ex. pentru anunțul de pe prima pagină). */
-export function campaignActive(merchant: string): boolean {
-  return campaignFor(merchant) !== undefined;
-}
-
 export function isBlackFridayProduct(p: BlackFridayProduct): boolean {
   const c = campaignFor(p.merchant);
   if (!c) return false;
   if (c.only === "reduse") return p.price != null && p.oldPrice != null && p.oldPrice > p.price;
   if (c.only) return (p.brand ?? "").toLowerCase().includes(c.only.brand);
   return true;
+}
+
+/** Campaniile din banner: cele în curs, apoi cele care încep în următoarele ANNOUNCE_DAYS zile. */
+export function bannerCampaigns(): BannerCampaign[] {
+  const now = Date.now();
+  return CAMPAIGNS.filter((c) => now < Date.parse(c.until) && (!c.from || Date.parse(c.from) - now <= ANNOUNCE_DAYS * DAY))
+    .map(({ merchant, name, offer, period, code, codeNote, from }) => ({
+      merchant,
+      name,
+      offer,
+      period,
+      code,
+      codeNote,
+      started: !from || now >= Date.parse(from),
+    }))
+    .sort((a, b) => Number(b.started) - Number(a.started));
 }
