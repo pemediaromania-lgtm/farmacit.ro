@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { bannerCampaigns } from "@/lib/blackFriday";
+import { bannerCampaigns, countdownVisible } from "@/lib/blackFriday";
 import { merchantLabel } from "@/lib/productFilters";
+import { BlackFridayCountdown } from "@/components/site/BlackFridayCountdown";
 
 /**
  * Bannerul Black Friday de pe prima pagină: oferta, perioada și codul fiecărui partener (vezi lib/blackFriday), cu
@@ -29,12 +30,17 @@ export async function BlackFridayOffers() {
   return (
     <section id="black-friday" className="bg-black text-white">
       <div className="mx-auto max-w-5xl px-4 sm:px-6 py-10">
-        <h2 className="text-2xl font-extrabold uppercase tracking-wide">
-          Black <span className="text-amber-400">Friday</span> la partenerii noștri
-        </h2>
-        <p className="mt-1 text-sm text-white/70">
-          Reducerile anunțate de magazine. Condițiile complete le găsești pe site-ul fiecăruia.
-        </p>
+        <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+          <div>
+            <h2 className="text-2xl font-extrabold uppercase tracking-wide">
+              Black <span className="text-amber-400">Friday</span> la partenerii noștri
+            </h2>
+            <p className="mt-1 text-sm text-white/70">
+              Reducerile anunțate de magazine. Condițiile complete le găsești pe site-ul fiecăruia.
+            </p>
+          </div>
+          {countdownVisible() && <BlackFridayCountdown />}
+        </div>
         <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {offers.map((o) => (
             <div key={o.merchant} className="flex flex-col rounded-2xl border border-white/15 bg-white/5 p-4">

@@ -68,6 +68,17 @@ const CAMPAIGNS: Campaign[] = [
 const ANNOUNCE_DAYS = 4;
 const DAY = 24 * 60 * 60 * 1000;
 
+/**
+ * Weekendul Black Friday în România (vineri 6 – duminică 8 noiembrie 2026), când pornesc majoritatea partenerilor.
+ * Pentru numărătoarea inversă din banner (BlackFridayCountdown), care dispare după final.
+ */
+export const BLACK_FRIDAY_STARTS = "2026-11-06T00:00:00+02:00";
+export const BLACK_FRIDAY_ENDS = "2026-11-09T00:00:00+02:00";
+
+export function countdownVisible(): boolean {
+  return Date.now() < Date.parse(BLACK_FRIDAY_ENDS);
+}
+
 export type BlackFridayProduct = {
   merchant: string | null;
   brand: string | null;
