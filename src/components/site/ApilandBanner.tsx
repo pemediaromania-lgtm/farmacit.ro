@@ -5,6 +5,14 @@ const APILAND_CLICK_URL =
 const APILAND_BANNER_SRC =
   "https://img.2performant.com/system/paperclip/banner_pictures/pics/272713/original/272713.png";
 
+// Bannerul anunță „până la −50%, 10–20 octombrie”: după campanie nu mai apare (și Tonic junior −30%, primit pe
+// 2026-11-05, era tot pentru 10–20 octombrie). Pentru o campanie nouă Apiland: alt banner și alt termen.
+const APILAND_UNTIL = "2026-10-21T00:00:00+03:00";
+
+export function apilandBannerActive(): boolean {
+  return Date.now() < Date.parse(APILAND_UNTIL);
+}
+
 export function ApilandBanner() {
   return (
     <aside aria-label="Recomandare Apiland.ro">

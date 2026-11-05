@@ -4,11 +4,13 @@ import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { ProductImage } from "@/components/site/ProductImage";
 import { BlackFridayBadge } from "@/components/site/BlackFridayBadge";
+import { PartnerBanner } from "@/components/site/PartnerBanner";
+import { partnerBannerFor } from "@/lib/partnerBanners";
 import { submitReviewAction } from "@/lib/actions/reviewActions";
 import { descriptionHasHtml, sanitizeProductDescription, stripHtmlToText } from "@/lib/productDescription";
 import { parseFaqJson } from "@/lib/faq";
 import { ManukaPromoBanner } from "@/components/site/ManukaPromoBanner";
-import { ApilandBanner } from "@/components/site/ApilandBanner";
+import { ApilandBanner, apilandBannerActive } from "@/components/site/ApilandBanner";
 import { isBeeProduct } from "@/lib/beeProducts";
 
 const MANUKA_CATEGORY = "Miere de Manuka";
@@ -88,6 +90,8 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
 
   if (!product || !product.isActive) notFound();
 
+  // Bannerul campaniei în curs a magazinului acestui produs (lib/partnerBanners.ts).
+  const partnerBanner = partnerBannerFor(product.merchant);
   const article = product.articles[0];
   // FAQ-ul e generat o singură dată, odată cu articolul AI al produsului — apare
   // pe pagina produsului treptat, produs cu produs, în ritmul generării articolelor.
@@ -268,9 +272,15 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
 
       {/* Lățime completă, sub blocul produsului — nu între preț și „Cumpără acum”, unde ar
           împinge în jos butonul propriu al produsului (alt magazin, alt comision). */}
-      {isBeeProduct(product.name, product.category) && (
+      {isBeeProduct(product.name, product.category) && apilandBannerActive() && (
         <div className="mt-10">
           <ApilandBanner />
+        </div>
+      )}
+
+      {partnerBanner && (
+        <div className="mt-10 flex justify-center">
+          <PartnerBanner banner={partnerBanner} />
         </div>
       )}
 

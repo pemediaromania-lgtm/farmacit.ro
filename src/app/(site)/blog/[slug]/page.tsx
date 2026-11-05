@@ -9,7 +9,7 @@ import { BlackFridayBadge } from "@/components/site/BlackFridayBadge";
 import { extractToc } from "@/lib/articleToc";
 import { submitArticleCommentAction } from "@/lib/actions/articleCommentActions";
 import { parseFaqJson } from "@/lib/faq";
-import { ApilandBanner } from "@/components/site/ApilandBanner";
+import { ApilandBanner, apilandBannerActive } from "@/components/site/ApilandBanner";
 import { isBeeProduct } from "@/lib/beeProducts";
 
 export const dynamic = "force-dynamic";
@@ -59,9 +59,11 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
   const comments = article.comments;
   // Articolele legate de un produs se judecă după produs (titlul poate omite „Manuka”
   // chiar dacă produsul e din categoria Miere de Manuka); cele generale, după titlu.
-  const showApilandBanner = article.product
-    ? isBeeProduct(article.product.name, article.product.category)
-    : isBeeProduct(article.title);
+  const showApilandBanner =
+    apilandBannerActive() &&
+    (article.product
+      ? isBeeProduct(article.product.name, article.product.category)
+      : isBeeProduct(article.title));
 
   const relatedProducts = article.product
     ? await prisma.product.findMany({
