@@ -4,8 +4,6 @@ import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { ProductImage } from "@/components/site/ProductImage";
 import { BlackFridayBadge } from "@/components/site/BlackFridayBadge";
-import { PartnerBanner } from "@/components/site/PartnerBanner";
-import { partnerBannerFor } from "@/lib/partnerBanners";
 import { submitReviewAction } from "@/lib/actions/reviewActions";
 import { descriptionHasHtml, sanitizeProductDescription, stripHtmlToText } from "@/lib/productDescription";
 import { parseFaqJson } from "@/lib/faq";
@@ -90,8 +88,6 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
 
   if (!product || !product.isActive) notFound();
 
-  // Bannerul campaniei în curs a magazinului acestui produs (lib/partnerBanners.ts).
-  const partnerBanner = partnerBannerFor(product.merchant);
   const article = product.articles[0];
   // FAQ-ul e generat o singură dată, odată cu articolul AI al produsului — apare
   // pe pagina produsului treptat, produs cu produs, în ritmul generării articolelor.
@@ -275,12 +271,6 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
       {isBeeProduct(product.name, product.category) && apilandBannerActive() && (
         <div className="mt-10">
           <ApilandBanner />
-        </div>
-      )}
-
-      {partnerBanner && (
-        <div className="mt-10 flex justify-center">
-          <PartnerBanner banner={partnerBanner} />
         </div>
       )}
 

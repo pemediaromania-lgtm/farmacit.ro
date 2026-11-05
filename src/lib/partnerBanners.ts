@@ -1,6 +1,6 @@
-// Bannere de afiliere 2Performant ale magazinelor din feed-ul nostru (primite de la Paul, 2026-11-05). Apar pe prima
-// pagină (PartnerBannersSection) și pe paginile produselor magazinului. Fiecare banner anunță o campanie cu termen,
-// așa că dispare singur la `until` (paginile sunt force-dynamic): un banner cu o reducere încheiată ar fi înșelător.
+// Bannere de afiliere 2Performant ale magazinelor din feed-ul nostru (primite de la Paul, 2026-11-05). Apar în
+// caruselul din fereastra de oferte din stânga jos (PromoCarousel), după reclama ESIMpatic. Fiecare banner anunță o
+// campanie cu termen, așa că dispare singur la `until`: un banner cu o reducere încheiată ar fi înșelător.
 // Bannerele magazinelor care nu sunt în feed-ul site-ului nu intră aici.
 //
 // Primite și lăsate deoparte: pfarma.ro (nu e în feed), vedrashop.ro Therasal −10% (1–31 octombrie, încheiată),
@@ -52,11 +52,4 @@ function isRunning(b: PartnerBanner, now: number): boolean {
 
 export function activePartnerBanners(now = Date.now()): PartnerBanner[] {
   return PARTNER_BANNERS.filter((b) => isRunning(b, now));
-}
-
-/** Bannerul în curs al magazinului unui produs, dacă există. */
-export function partnerBannerFor(merchant: string | null | undefined, now = Date.now()): PartnerBanner | undefined {
-  const m = merchant?.toLowerCase();
-  if (!m) return undefined;
-  return PARTNER_BANNERS.find((b) => m.includes(b.merchant) && isRunning(b, now));
 }

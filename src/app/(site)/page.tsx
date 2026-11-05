@@ -6,7 +6,6 @@ import { prisma } from "@/lib/prisma";
 import { ProductImage } from "@/components/site/ProductImage";
 import { BlackFridayBadge } from "@/components/site/BlackFridayBadge";
 import { BlackFridayOffers } from "@/components/site/BlackFridayOffers";
-import { PartnerBannersSection } from "@/components/site/PartnerBanner";
 import { categoryImagePublicPath, categoryImageSlug } from "@/lib/productCategory";
 
 export const dynamic = "force-dynamic";
@@ -111,8 +110,6 @@ export default async function HomePage() {
       </section>
 
       <BlackFridayOffers />
-
-      <PartnerBannersSection />
 
       {groups.length > 0 && (
         <section className="py-16">
