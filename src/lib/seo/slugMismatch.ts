@@ -1,3 +1,5 @@
+import slugify from "slugify";
+
 /**
  * Adresa unui produs (slug) se face o singură dată, din numele lui. Dacă numele de acum nu mai are aproape nimic
  * în comun cu adresa, rândul a fost suprascris cu alt produs (vechea potrivire doar după `product_id`, care se repetă
@@ -22,9 +24,16 @@ export function wordOverlap(a: Set<string>, b: Set<string>): number {
   return shared / a.size;
 }
 
-/** false = adresa e a altui produs decât cel afișat. Adresele fără niciun cuvânt semnificativ nu se judecă. */
+/**
+ * false = adresa e a altui produs decât cel afișat. Numele trece prin aceeași transformare ca la crearea adresei
+ * (lib/slug.ts → slugify), lipit fără cratime: „S.H.I.E.L.D.” → „shield”, „Who's” → „whos”, „Desire Labs” →
+ * „desirelabs” — punctuația și spațiile nu mai produc alarme false. Adresele fără niciun cuvânt semnificativ nu se judecă.
+ */
 export function slugMatchesName(slug: string, name: string): boolean {
   const slugWords = significantWords(slug.replace(/-[0-9]+$/, "")); // fără sufixul de unicitate „-2”
   if (slugWords.size === 0) return true;
-  return wordOverlap(slugWords, significantWords(name)) >= 0.3;
+  const compactName = slugify(name, { lower: true, strict: true, locale: "ro" }).replace(/-/g, "");
+  let found = 0;
+  for (const word of slugWords) if (compactName.includes(word)) found++;
+  return found / slugWords.size >= 0.3;
 }

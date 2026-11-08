@@ -10,6 +10,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const { slug } = await params;
   const product = await prisma.product.findUnique({ where: { slug } });
 
+  if (!product) {
+    // Adresa veche a unui produs reparat (lib/feed/repairMismatchedSlugs) → pagina lui nouă.
+    const moved = await prisma.productSlugRedirect.findUnique({ where: { fromSlug: slug } });
+    if (moved) return new NextResponse(null, { status: 307, headers: { Location: `/produse/${moved.toSlug}` } });
+  }
+
   if (!product || !product.affiliateUrl) {
     // Relativ, nu `new URL("/produse", request.url)`: în spatele proxy-ului de pe VPS, request.url e
     // adresa internă a containerului (https://localhost:3000), iar vizitatorul ajungea acolo.

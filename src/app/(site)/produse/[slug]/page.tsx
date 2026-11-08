@@ -91,7 +91,12 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
   const { slug } = await params;
   const product = await getProduct(slug);
 
-  if (!product) notFound();
+  if (!product) {
+    // Adresa veche a unui produs reparat (lib/feed/repairMismatchedSlugs) → adresa lui nouă.
+    const moved = await prisma.productSlugRedirect.findUnique({ where: { fromSlug: slug } });
+    if (moved) permanentRedirect(`/produse/${moved.toSlug}`);
+    notFound();
+  }
   // Produs scos de pe site (dispărut din feed sau program 2Performant inactiv): în loc de 404, vizitatorul
   // din Google, din articole sau de pe alte site-uri ajunge la cel mai asemănător produs activ.
   // Program inactiv = definitiv (308, Google mută pagina pe înlocuitor); altfel poate reveni în feed (307).

@@ -85,6 +85,7 @@ model Article {
   id            String    @id @default(cuid())
   productId     String?
   product       Product?  @relation(fields: [productId], references: [id])
+  productIsAlternative Boolean @default(false) // produsul din casetă e o alternativă: cel original nu mai e în feed
   title         String
   slug          String    @unique
   content       String
@@ -138,4 +139,12 @@ model ActivityLog {
 
   @@index([action])
   @@index([createdAt])
+}
+
+/// Adresa veche a unui produs → adresa nouă (reparația produselor suprascrise; lib/feed/repairMismatchedSlugs.ts).
+/// Creat și la pornire de src/lib/db/ensureSchema.ts.
+model ProductSlugRedirect {
+  fromSlug  String   @id
+  toSlug    String
+  createdAt DateTime @default(now())
 }

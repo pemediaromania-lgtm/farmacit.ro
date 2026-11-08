@@ -2,6 +2,7 @@ import "dotenv/config";
 import { prisma } from "@/lib/prisma";
 import { importFeed } from "@/lib/feed/importFeed";
 import { logActivity } from "@/lib/activityLog";
+import { finishSlugRepairs, repairMismatchedSlugs, type SlugRepair } from "@/lib/feed/repairMismatchedSlugs";
 
 /**
  * Sincronizează toate feed-urile din admin, direct în baza de date — nu prin
@@ -14,6 +15,16 @@ async function main() {
   const feeds = await prisma.feed.findMany({ select: { id: true, name: true } });
   console.log(`[${new Date().toISOString()}] Sincronizare ${feeds.length} feed-uri...`);
 
+  // Înainte de import: produsele suprascrise (adresa altui produs) primesc adresa lor; adresa veche rămâne liberă
+  // pentru produsul original, pe care importul de mai jos îl poate crea din nou exact acolo.
+  let repairs: SlugRepair[] = [];
+  try {
+    repairs = await repairMismatchedSlugs();
+    console.log(`  Adrese reparate: ${repairs.length}`);
+  } catch (error) {
+    console.error("  Reparația adreselor a eșuat:", error);
+  }
+
   for (const feed of feeds) {
     try {
       const result = await importFeed(feed.id, null);
@@ -24,11 +35,21 @@ async function main() {
     }
   }
 
+  let repairResult: Awaited<ReturnType<typeof finishSlugRepairs>> | null = null;
+  if (repairs.length > 0) {
+    try {
+      repairResult = await finishSlugRepairs(repairs);
+      console.log(`  Reparație încheiată: ${JSON.stringify(repairResult)}`);
+    } catch (error) {
+      console.error("  Încheierea reparației a eșuat:", error);
+    }
+  }
+
   await logActivity({
     action: "feed.imported",
     userId: null,
     entityType: "feed",
-    meta: { source: "local-cron", feedCount: feeds.length },
+    meta: { source: "local-cron", feedCount: feeds.length, slugRepairs: repairs.length, repairResult },
   });
 }
 

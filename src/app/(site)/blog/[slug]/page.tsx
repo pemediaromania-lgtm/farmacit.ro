@@ -171,7 +171,7 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
             <ProductImage src={boxProduct.imageUrl} alt={boxProduct.name} className="h-full w-full object-contain" />
           </div>
           <div className="flex-1 text-center sm:text-left">
-            {isReplacement && (
+            {(isReplacement || article.productIsAlternative) && (
               <p className="text-xs font-semibold uppercase tracking-wide text-brand-600">Alternativă disponibilă acum</p>
             )}
             <p className="font-semibold text-brand-900">{boxProduct.name}</p>
