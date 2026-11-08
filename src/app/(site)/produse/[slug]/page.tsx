@@ -1,7 +1,9 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect, redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
+import { deactivateInactiveMerchantProducts, isInactiveMerchant } from "@/lib/inactiveMerchants";
+import { replacementHref } from "@/lib/replacementProduct";
 import { ProductImage } from "@/components/site/ProductImage";
 import { BlackFridayBadge } from "@/components/site/BlackFridayBadge";
 import { submitReviewAction } from "@/lib/actions/reviewActions";
@@ -86,7 +88,17 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
   const { slug } = await params;
   const product = await getProduct(slug);
 
-  if (!product || !product.isActive) notFound();
+  if (!product) notFound();
+  // Produs scos de pe site (dispărut din feed sau program 2Performant inactiv): în loc de 404, vizitatorul
+  // din Google, din articole sau de pe alte site-uri ajunge la cel mai asemănător produs activ.
+  // Program inactiv = definitiv (308, Google mută pagina pe înlocuitor); altfel poate reveni în feed (307).
+  const inactiveMerchant = isInactiveMerchant(product.merchant);
+  if (!product.isActive || inactiveMerchant) {
+    if (inactiveMerchant && product.isActive) await deactivateInactiveMerchantProducts();
+    const target = await replacementHref(product);
+    if (inactiveMerchant) permanentRedirect(target);
+    redirect(target);
+  }
 
   const article = product.articles[0];
   // FAQ-ul e generat o singură dată, odată cu articolul AI al produsului — apare

@@ -4,6 +4,8 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import ReactMarkdown from "react-markdown";
 import { prisma } from "@/lib/prisma";
+import { isInactiveMerchant } from "@/lib/inactiveMerchants";
+import { findReplacementProduct } from "@/lib/replacementProduct";
 import { ProductImage } from "@/components/site/ProductImage";
 import { BlackFridayBadge } from "@/components/site/BlackFridayBadge";
 import { extractToc } from "@/lib/articleToc";
@@ -54,6 +56,13 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
 
   if (!article || article.status !== "published") notFound();
 
+  // Produsul articolului a fost scos de pe site (program 2Performant inactiv, dispărut din feed): caseta
+  // de la final arată cel mai asemănător produs activ, ca articolul să aducă în continuare click-uri.
+  const boxProduct =
+    article.product && (!article.product.isActive || isInactiveMerchant(article.product.merchant))
+      ? await findReplacementProduct(article.product)
+      : article.product;
+  const isReplacement = boxProduct != null && boxProduct.id !== article.product?.id;
   const toc = extractToc(article.content);
   const faq = parseFaqJson(article.faq);
   const comments = article.comments;
@@ -156,25 +165,28 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
         </ReactMarkdown>
       </div>
 
-      {article.product && (
+      {boxProduct && (
         <div className="mt-10 rounded-2xl border border-brand-200 bg-brand-50 p-6 flex flex-col sm:flex-row items-center gap-6">
           <div className="h-24 w-24 shrink-0 overflow-hidden rounded-lg bg-white p-2">
-            <ProductImage src={article.product.imageUrl} alt={article.product.name} className="h-full w-full object-contain" />
+            <ProductImage src={boxProduct.imageUrl} alt={boxProduct.name} className="h-full w-full object-contain" />
           </div>
           <div className="flex-1 text-center sm:text-left">
-            <p className="font-semibold text-brand-900">{article.product.name}</p>
-            {article.product.price != null && (
+            {isReplacement && (
+              <p className="text-xs font-semibold uppercase tracking-wide text-brand-600">Alternativă disponibilă acum</p>
+            )}
+            <p className="font-semibold text-brand-900">{boxProduct.name}</p>
+            {boxProduct.price != null && (
               <p className="text-brand-700 font-medium">
-                {article.product.price.toFixed(2)} {article.product.currency}
+                {boxProduct.price.toFixed(2)} {boxProduct.currency}
               </p>
             )}
           </div>
           {/* <a> simplu, nu <Link>: Link preîncarcă ruta /go/ (care numără click-ul și redirecționează)
               imediat ce butonul apare pe ecran, iar la click o cerea de două ori — contorul număra
               vizualizări, nu click-uri. „sponsored” marchează linkul de afiliere pentru Google. */}
-          {article.product.affiliateUrl && article.product.isActive && (
+          {boxProduct.affiliateUrl && (
             <a
-              href={`/go/${article.product.slug}`}
+              href={`/go/${boxProduct.slug}`}
               rel="sponsored nofollow"
               className="rounded-full bg-brand-600 px-6 py-3 text-white font-medium hover:bg-brand-700 transition-colors whitespace-nowrap"
             >
