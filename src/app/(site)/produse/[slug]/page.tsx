@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, permanentRedirect, redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
+import { isIndexableProduct } from "@/lib/seo/indexable";
 import { deactivateInactiveMerchantProducts, isInactiveMerchant } from "@/lib/inactiveMerchants";
 import { replacementHref } from "@/lib/replacementProduct";
 import { ProductImage } from "@/components/site/ProductImage";
@@ -74,6 +75,8 @@ export async function generateMetadata({
     title,
     description,
     alternates: { canonical: `${baseUrl}/produse/${product.slug}` },
+    // Produs nou din feed, fără conținut propriu: rămâne pe site, dar nu intră încă în Google (lib/seo/indexable).
+    ...(isIndexableProduct(product) ? {} : { robots: { index: false, follow: true } }),
     openGraph: {
       title,
       description,

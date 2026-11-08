@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { prisma } from "@/lib/prisma";
+import { INDEXABLE_PRODUCT_WHERE } from "@/lib/seo/indexable";
 
 // Interoghează baza de date — nu poate fi generat static la build (mediul de
 // build Railway nu are acces la rețeaua privată internă către Postgres).
@@ -10,7 +11,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   const [articles, products, categoryContents] = await Promise.all([
     prisma.article.findMany({ where: { status: "published" }, select: { slug: true, updatedAt: true } }),
-    prisma.product.findMany({ where: { isActive: true }, select: { slug: true, updatedAt: true } }),
+    // Doar produsele indexabile (lib/seo/indexable): cele de dinainte de regula ritmului + cele noi cu conținut propriu.
+    prisma.product.findMany({ where: INDEXABLE_PRODUCT_WHERE, select: { slug: true, updatedAt: true } }),
     prisma.categoryContent.findMany({ select: { categoryGroup: true, category: true, updatedAt: true } }),
   ]);
 

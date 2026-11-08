@@ -4,7 +4,7 @@ import { logActivity } from "@/lib/activityLog";
 import { generateArticleContent } from "@/lib/ai/generateArticle";
 import { generateCoverImage } from "@/lib/ai/generateCoverImage";
 import { stripHtmlToText } from "@/lib/productDescription";
-import { submitUrlToIndexNow } from "@/lib/seo/indexNow";
+import { submitUrlsToIndexNow } from "@/lib/seo/indexNow";
 
 const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
 
@@ -53,7 +53,8 @@ export async function generateArticleForProduct(productId: string, userId?: stri
       meta: { productId: product.id, productName: product.name },
     });
 
-    await submitUrlToIndexNow(`${baseUrl}/blog/${slug}`);
+    // Cu articol publicat, produsul devine indexabil (lib/seo/indexable) — se anunță și pagina lui.
+    await submitUrlsToIndexNow([`${baseUrl}/blog/${slug}`, `${baseUrl}/produse/${product.slug}`]);
 
     return article;
   } catch (error) {
@@ -76,7 +77,8 @@ export async function generateArticleForProduct(productId: string, userId?: stri
 export async function generateArticlesForArticlelessProducts(limit: number, userId?: string | null) {
   const products = await prisma.product.findMany({
     where: { isActive: true, articles: { none: {} } },
-    orderBy: { createdAt: "asc" },
+    // Întâi produsele pe care vizitatorii dau click: articolul e poarta prin care un produs intră în Google.
+    orderBy: [{ clickCount: "desc" }, { createdAt: "asc" }],
     take: limit,
     select: { id: true },
   });
