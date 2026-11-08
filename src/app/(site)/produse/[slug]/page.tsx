@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { isIndexableProduct } from "@/lib/seo/indexable";
 import { deactivateInactiveMerchantProducts, isInactiveMerchant } from "@/lib/inactiveMerchants";
 import { replacementHref } from "@/lib/replacementProduct";
-import { ProductImage } from "@/components/site/ProductImage";
+import { ProductGallery } from "@/components/site/ProductGallery";
 import { BlackFridayBadge } from "@/components/site/BlackFridayBadge";
 import { submitReviewAction } from "@/lib/actions/reviewActions";
 import { descriptionHasHtml, sanitizeProductDescription, stripHtmlToText } from "@/lib/productDescription";
@@ -103,6 +103,10 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
     redirect(target);
   }
 
+  // Galeria: poza principală (ca înainte) + pozele secundare din feed, fără duplicate, maxim 8.
+  const galleryImages = [product.imageUrl, ...product.images]
+    .filter((src, i, all): src is string => Boolean(src) && all.indexOf(src) === i)
+    .slice(0, 8);
   const article = product.articles[0];
   // FAQ-ul e generat o singură dată, odată cu articolul AI al produsului — apare
   // pe pagina produsului treptat, produs cu produs, în ritmul generării articolelor.
@@ -118,7 +122,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
     "@type": "Product",
     name: product.name,
     description: product.description ? stripHtmlToText(product.description) : undefined,
-    image: product.imageUrl ?? undefined,
+    image: galleryImages.length > 0 ? galleryImages : undefined,
     sku: product.externalId ?? undefined,
     gtin: product.gtin ?? undefined,
     brand: product.brand ? { "@type": "Brand", name: product.brand } : undefined,
@@ -213,10 +217,11 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
       </nav>
 
       <div className="grid gap-8 sm:grid-cols-2 items-start">
-        <div className="relative aspect-square w-full rounded-2xl bg-brand-50 overflow-hidden">
-          <BlackFridayBadge product={product} size="lg" className="absolute left-3 top-3" />
-          <ProductImage src={product.imageUrl} alt={product.name} className="h-full w-full object-contain p-8" />
-        </div>
+        <ProductGallery
+          images={galleryImages}
+          alt={product.name}
+          overlay={<BlackFridayBadge product={product} size="lg" className="absolute left-3 top-3 z-10" />}
+        />
         <div>
           {product.category && (
             <Link

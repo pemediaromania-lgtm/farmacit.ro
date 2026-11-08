@@ -99,6 +99,7 @@ async function applyFeedItems(feedId: string, items: RawFeedProduct[]): Promise<
       description: true,
       price: true,
       imageUrl: true,
+      images: true,
       affiliateUrl: true,
       isActive: true,
     },
@@ -148,6 +149,7 @@ async function applyFeedItems(feedId: string, items: RawFeedProduct[]): Promise<
         existing.name !== item.name ||
         existing.price !== item.price ||
         existing.imageUrl !== item.imageUrl ||
+        JSON.stringify(existing.images) !== JSON.stringify(item.images) ||
         existing.affiliateUrl !== item.affiliateUrl ||
         existing.description !== item.description;
 
@@ -171,6 +173,7 @@ async function applyFeedItems(feedId: string, items: RawFeedProduct[]): Promise<
           brand: item.brand,
           merchant: item.merchant,
           imageUrl: item.imageUrl,
+          images: item.images,
           gtin: item.gtin,
           affiliateUrl: item.affiliateUrl,
           availability: item.availability,
@@ -200,6 +203,7 @@ async function applyFeedItems(feedId: string, items: RawFeedProduct[]): Promise<
         brand: item.brand,
         merchant: item.merchant,
         imageUrl: item.imageUrl,
+        images: item.images,
         gtin: item.gtin,
         affiliateUrl: item.affiliateUrl,
         availability: item.availability,

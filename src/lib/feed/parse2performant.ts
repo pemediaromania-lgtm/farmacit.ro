@@ -12,6 +12,8 @@ export interface RawFeedProduct {
   brand: string | null;
   merchant: string | null;
   imageUrl: string | null;
+  /** Toate pozele din feed (prima = imageUrl), fără duplicate, maxim MAX_IMAGES; gol dacă produsul are o singură poză. */
+  images: string[];
   affiliateUrl: string | null;
   availability: string | null;
   gtin: string | null;
@@ -46,6 +48,23 @@ function toNumber(raw: unknown): number | null {
  * separate prin virgulă în același câmp `image_urls` — produsul are un singur
  * `imageUrl` în schema noastră, deci păstrăm doar primul.
  */
+const MAX_IMAGES = 8;
+
+/**
+ * Pozele secundare pentru galeria de pe pagina produsului (după modelul casain2). `imageUrl` rămâne cel de mai sus,
+ * neschimbat; aici doar URL-urile http(s) valide. Gol când e o singură poză, ca produsele fără galerie să nu fie
+ * rescrise degeaba la sincronizare.
+ */
+function allImageUrls(raw: string | null): string[] {
+  if (!raw) return [];
+  const urls = raw
+    .split(",")
+    .map((u) => u.trim())
+    .filter((u) => /^https?:[/][/]/i.test(u));
+  const images = [...new Set(urls)].slice(0, MAX_IMAGES);
+  return images.length > 1 ? images : [];
+}
+
 function firstImageUrl(raw: string | null): string | null {
   if (!raw) return null;
   const first = raw.split(",")[0]?.trim();
@@ -116,6 +135,7 @@ function parseCsvFeed(csvText: string): RawFeedProduct[] {
       brand: pickCsv(normalizedRow, CSV_FIELD_CANDIDATES.brand),
       merchant: pickCsv(normalizedRow, CSV_FIELD_CANDIDATES.merchant),
       imageUrl: firstImageUrl(pickCsv(normalizedRow, CSV_FIELD_CANDIDATES.imageUrl)),
+      images: allImageUrls(pickCsv(normalizedRow, CSV_FIELD_CANDIDATES.imageUrl)),
       affiliateUrl,
       availability: pickCsv(normalizedRow, CSV_FIELD_CANDIDATES.availability),
       gtin: pickCsv(normalizedRow, CSV_FIELD_CANDIDATES.gtin),
@@ -125,7 +145,7 @@ function parseCsvFeed(csvText: string): RawFeedProduct[] {
 
 // ---------- XML (alte feed-uri posibile: Google Shopping style, YML, 2Performant XML) ----------
 
-const XML_FIELD_CANDIDATES: Record<keyof Omit<RawFeedProduct, "externalId" | "merchant">, string[]> = {
+const XML_FIELD_CANDIDATES: Record<keyof Omit<RawFeedProduct, "externalId" | "merchant" | "images">, string[]> = {
   name: ["name", "title", "product_name", "productname"],
   description: ["description", "desc", "short_description"],
   price: ["price", "sale_price", "price_ron"],
@@ -213,6 +233,7 @@ function parseXmlFeed(xml: string): RawFeedProduct[] {
       brand: pickXml(item, XML_FIELD_CANDIDATES.brand),
       merchant: pickXml(item, XML_MERCHANT_CANDIDATES),
       imageUrl: firstImageUrl(pickXml(item, XML_FIELD_CANDIDATES.imageUrl)),
+      images: allImageUrls(pickXml(item, XML_FIELD_CANDIDATES.imageUrl)),
       affiliateUrl,
       availability: pickXml(item, XML_FIELD_CANDIDATES.availability),
       gtin: pickXml(item, XML_FIELD_CANDIDATES.gtin),

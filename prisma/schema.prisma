@@ -52,6 +52,7 @@ model Product {
   brand        String?
   merchant     String? // magazinul partener (ex: "springfarma.com"), din feed-ul de afiliere
   imageUrl     String?
+  images       String[] @default([]) // toate pozele din feed (prima = imageUrl) — gol când produsul are o singură poză
   gtin         String? // cod de bare (EAN/UPC), pentru date structurate SEO (schema.org Product)
   affiliateUrl String?
   type         String    @default("affiliate") // "affiliate" | "own" (rezervat pt. produse proprii pe viitor)
