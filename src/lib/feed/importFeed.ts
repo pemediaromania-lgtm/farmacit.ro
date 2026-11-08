@@ -1,5 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { downloadFeedText } from "@/lib/feed/downloadFeed";
 import { parse2performantFeed, type RawFeedProduct } from "@/lib/feed/parse2performant";
 import { createProductMatcher } from "@/lib/feed/productMatch";
 import { deactivateInactiveMerchantProducts, isInactiveMerchant } from "@/lib/inactiveMerchants";
@@ -33,9 +34,7 @@ export async function importFeed(feedId: string, userId?: string | null): Promis
 
   let rawText: string;
   try {
-    const response = await fetch(feed.url);
-    if (!response.ok) throw new Error(`Descărcarea feed-ului a eșuat (status ${response.status})`);
-    rawText = await response.text();
+    rawText = await downloadFeedText(feed.url);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     await prisma.feed.update({
