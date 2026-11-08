@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { parse2performantFeed, type RawFeedProduct } from "@/lib/feed/parse2performant";
+import { deactivateInactiveMerchantProducts, isInactiveMerchant } from "@/lib/inactiveMerchants";
 import { dedupeSlugSync } from "@/lib/slug";
 import { logActivity } from "@/lib/activityLog";
 import { classifyProduct } from "@/lib/productCategory";
@@ -31,6 +32,8 @@ const normalizeName = (name: string) => name.trim().toLowerCase();
 /** Descarcă feed-ul de la URL-ul feed-ului și importă produsele. */
 export async function importFeed(feedId: string, userId?: string | null): Promise<ImportResult> {
   const feed = await prisma.feed.findUniqueOrThrow({ where: { id: feedId } });
+  // Înainte de descărcare: produsele programelor inactive ies de pe site chiar dacă feed-ul lor dă eroare.
+  await deactivateInactiveMerchantProducts();
 
   let rawText: string;
   try {
@@ -62,7 +65,8 @@ export async function importFeedFromText(
   rawText: string,
   userId?: string | null
 ): Promise<ImportResult> {
-  const items = parse2performantFeed(rawText).filter((item) => item.name?.trim());
+  // Programele inactive (lib/inactiveMerchants) sunt sărite: produsele lor existente devin „dispărute din feed” și se dezactivează.
+  const items = parse2performantFeed(rawText).filter((item) => item.name?.trim() && !isInactiveMerchant(item.merchant));
   const result = await applyFeedItems(feedId, items);
 
   await prisma.feed.update({

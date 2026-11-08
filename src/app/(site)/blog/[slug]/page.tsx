@@ -172,7 +172,7 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
           {/* <a> simplu, nu <Link>: Link preîncarcă ruta /go/ (care numără click-ul și redirecționează)
               imediat ce butonul apare pe ecran, iar la click o cerea de două ori — contorul număra
               vizualizări, nu click-uri. „sponsored” marchează linkul de afiliere pentru Google. */}
-          {article.product.affiliateUrl && (
+          {article.product.affiliateUrl && article.product.isActive && (
             <a
               href={`/go/${article.product.slug}`}
               rel="sponsored nofollow"
