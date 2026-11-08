@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { parse2performantFeed, type RawFeedProduct } from "@/lib/feed/parse2performant";
+import { createProductMatcher } from "@/lib/feed/productMatch";
 import { deactivateInactiveMerchantProducts, isInactiveMerchant } from "@/lib/inactiveMerchants";
 import { dedupeSlugSync } from "@/lib/slug";
 import { logActivity } from "@/lib/activityLog";
@@ -23,8 +24,6 @@ export interface ImportResult {
   totalCount: number;
   deactivatedCount: number;
 }
-
-const normalizeName = (name: string) => name.trim().toLowerCase();
 
 /** Descarcă feed-ul de la URL-ul feed-ului și importă produsele. */
 export async function importFeed(feedId: string, userId?: string | null): Promise<ImportResult> {
@@ -95,6 +94,7 @@ async function applyFeedItems(feedId: string, items: RawFeedProduct[]): Promise<
     select: {
       id: true,
       externalId: true,
+      merchant: true,
       name: true,
       description: true,
       price: true,
@@ -104,10 +104,10 @@ async function applyFeedItems(feedId: string, items: RawFeedProduct[]): Promise<
       isActive: true,
     },
   });
-  const existingByExternalId = new Map(
-    existingProducts.filter((p) => p.externalId).map((p) => [p.externalId as string, p])
-  );
-  const existingByName = new Map(existingProducts.map((p) => [normalizeName(p.name), p]));
+  // Potrivire pe magazin + id (apoi id cu nume asemănător, apoi magazin + nume) — `product_id` se repetă între
+  // magazine, iar potrivit doar după el un produs scria peste altul (libratic: /produse/almanah-2015 arăta
+  // „Cenușăreasa”). Vezi lib/feed/productMatch.ts.
+  const matcher = createProductMatcher(existingProducts);
 
   // Toate slug-urile existente (global, nu doar din acest feed) — dedup în memorie,
   // în loc de un query de verificare per produs nou.
@@ -121,22 +121,17 @@ async function applyFeedItems(feedId: string, items: RawFeedProduct[]): Promise<
   const updateOps: { id: string; data: Prisma.ProductUpdateInput }[] = [];
   // Apără la duplicate în același import (același externalId sau titlu apărut de două
   // ori în feed) — altfel am crea două produse noi pentru același articol.
-  const seenNewExternalIds = new Set<string>();
-  const seenNewNames = new Set<string>();
+  const seenNewKeys = new Set<string>();
   // Produsele existente ale acestui feed care mai apar și în importul curent —
   // restul, la final, dispar din feed (comerciantul nu le mai listează) și sunt
   // dezactivate automat, ca să nu rămână "fantomă" pe site.
   const matchedExistingIds = new Set<string>();
 
   for (const item of items) {
-    const normalizedName = normalizeName(item.name);
     const classification = classifyProduct(item.name, item.category);
-    const existing =
-      (item.externalId && existingByExternalId.get(item.externalId)) ?? existingByName.get(normalizedName);
-
-    const alreadySeenInThisImport = item.externalId
-      ? seenNewExternalIds.has(item.externalId)
-      : seenNewNames.has(normalizedName);
+    const existing = matcher.find(item, matchedExistingIds);
+    const newKey = matcher.keyFor(item);
+    const alreadySeenInThisImport = seenNewKeys.has(newKey);
 
     if (!existing && alreadySeenInThisImport) {
       unchangedCount++;
@@ -145,6 +140,8 @@ async function applyFeedItems(feedId: string, items: RawFeedProduct[]): Promise<
 
     if (existing) {
       matchedExistingIds.add(existing.id);
+      // Același produs apărut încă o dată în feed nu devine produs nou (rândul lui e deja luat în acest import).
+      seenNewKeys.add(newKey);
       const changed =
         existing.name !== item.name ||
         existing.price !== item.price ||
@@ -185,8 +182,7 @@ async function applyFeedItems(feedId: string, items: RawFeedProduct[]): Promise<
       });
       updatedCount++;
     } else {
-      if (item.externalId) seenNewExternalIds.add(item.externalId);
-      else seenNewNames.add(normalizedName);
+      seenNewKeys.add(newKey);
 
       const slug = dedupeSlugSync(item.name, takenSlugs);
       toCreate.push({
