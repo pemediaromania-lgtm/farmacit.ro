@@ -25,6 +25,7 @@ const replacementSelect = {
   name: true,
   brand: true,
   price: true,
+  oldPrice: true,
   currency: true,
   imageUrl: true,
   merchant: true,

@@ -139,6 +139,43 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
 
       <h1 className="text-3xl sm:text-4xl font-bold text-brand-900 mb-6">{article.title}</h1>
 
+      {/* Produsul articolului chiar sub titlu, cu prețul și butonul (caseta mare rămâne și la final): cine vine din
+          Google vrea de obicei prețul și nu citește tot articolul până la caseta de jos. */}
+      {boxProduct?.affiliateUrl && (
+        <div className="mb-8 flex items-center gap-3 rounded-2xl border border-brand-200 bg-white p-3 shadow-sm">
+          <Link
+            href={`/produse/${boxProduct.slug}`}
+            prefetch={false}
+            className="h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-white"
+          >
+            <ProductImage src={boxProduct.imageUrl} alt={boxProduct.name} className="h-full w-full object-contain p-1" />
+          </Link>
+          <div className="min-w-0 flex-1">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-brand-500">
+              {isReplacement || article.productIsAlternative ? "Alternativă disponibilă acum" : "Produsul din articol"}
+            </p>
+            <p className="line-clamp-1 text-sm font-medium text-brand-900">{boxProduct.name}</p>
+            {boxProduct.price != null && (
+              <p className="flex flex-wrap items-baseline gap-x-2 text-sm font-bold text-brand-700">
+                {boxProduct.price.toFixed(2)} {boxProduct.currency}
+                {boxProduct.oldPrice != null && boxProduct.oldPrice > boxProduct.price && (
+                  <span className="rounded-full bg-red-600 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                    −{Math.round((1 - boxProduct.price / boxProduct.oldPrice) * 100)}%
+                  </span>
+                )}
+              </p>
+            )}
+          </div>
+          <a
+            href={`/go/${boxProduct.slug}`}
+            rel="sponsored nofollow"
+            className="shrink-0 rounded-full bg-brand-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-700"
+          >
+            Vezi oferta
+          </a>
+        </div>
+      )}
+
       {toc.length > 0 && (
         <nav className="mb-8 rounded-2xl border border-brand-100 bg-brand-50/60 p-5" aria-label="Cuprins">
           <p className="text-sm font-bold text-brand-900 mb-2">Cuprins</p>
