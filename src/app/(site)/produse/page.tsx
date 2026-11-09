@@ -283,41 +283,56 @@ export default async function ProductsPage({
           ) : (
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {products.map((product) => (
-                <Link
+                <div
                   key={product.id}
-                  href={`/produse/${product.slug}`}
-                  className="group rounded-2xl border border-brand-100 overflow-hidden hover:shadow-lg transition-shadow bg-white"
+                  className="group flex flex-col rounded-2xl border border-brand-100 overflow-hidden hover:shadow-lg transition-shadow bg-white"
                 >
-                  <div className="relative h-48 sm:h-40 lg:h-32 w-full bg-white flex items-center justify-center overflow-hidden">
-                    {product.price != null && product.oldPrice != null && product.oldPrice > product.price && (
-                      <span className="absolute left-2 top-2 z-10 rounded-full bg-red-600 px-2 py-0.5 text-xs font-bold text-white">
-                        -{Math.round((1 - product.price / product.oldPrice) * 100)}%
-                      </span>
-                    )}
-                    <BlackFridayBadge product={product} className="absolute right-2 top-2" />
-                    <ProductImage
-                      src={product.imageUrl}
-                      alt={product.name}
-                      className="max-h-full max-w-full object-contain p-4 group-hover:scale-105 transition-transform"
-                    />
-                  </div>
-                  <div className="p-4">
-                    {product.brand && (
-                      <p className="mb-1 truncate text-xs font-medium text-brand-600">{product.brand}</p>
-                    )}
-                    <h2 className="font-medium text-brand-900 text-sm line-clamp-2">{product.name}</h2>
-                    {product.price != null && (
-                      <p className="mt-2 flex flex-wrap items-baseline gap-x-2 font-semibold text-brand-700">
-                        {product.price.toFixed(2)} {product.currency}
-                        {product.oldPrice != null && product.oldPrice > product.price && (
-                          <span className="text-xs font-normal text-brand-800/50 line-through">
-                            {product.oldPrice.toFixed(2)}
-                          </span>
-                        )}
-                      </p>
-                    )}
-                  </div>
-                </Link>
+                  <Link href={`/produse/${product.slug}`} className="flex flex-1 flex-col">
+                    <div className="relative h-48 sm:h-40 lg:h-32 w-full bg-white flex items-center justify-center overflow-hidden">
+                      {product.price != null && product.oldPrice != null && product.oldPrice > product.price && (
+                        <span className="absolute left-2 top-2 z-10 rounded-full bg-red-600 px-2 py-0.5 text-xs font-bold text-white">
+                          -{Math.round((1 - product.price / product.oldPrice) * 100)}%
+                        </span>
+                      )}
+                      <BlackFridayBadge product={product} className="absolute right-2 top-2" />
+                      <ProductImage
+                        src={product.imageUrl}
+                        alt={product.name}
+                        className="max-h-full max-w-full object-contain p-4 group-hover:scale-105 transition-transform"
+                      />
+                    </div>
+                    <div className="p-4">
+                      {product.brand && (
+                        <p className="mb-1 truncate text-xs font-medium text-brand-600">{product.brand}</p>
+                      )}
+                      <h2 className="font-medium text-brand-900 text-sm line-clamp-2">{product.name}</h2>
+                      {product.price != null && (
+                        <p className="mt-2 flex flex-wrap items-baseline gap-x-2 font-semibold text-brand-700">
+                          {product.price.toFixed(2)} {product.currency}
+                          {product.oldPrice != null && product.oldPrice > product.price && (
+                            <span className="text-xs font-normal text-brand-800/50 line-through">
+                              {product.oldPrice.toFixed(2)}
+                            </span>
+                          )}
+                        </p>
+                      )}
+                    </div>
+                  </Link>
+                  {/* Buton direct spre magazin (cerut de Paul, 2026-11-09), în tab nou ca lista să rămână deschisă (ca la casain2). <a> simplu
+                      spre /go/, nu <Link> — Link ar preîncărca /go/ și ar număra click-uri false. */}
+                  {product.affiliateUrl && (
+                    <div className="px-4 pb-4">
+                      <a
+                        href={`/go/${product.slug}`}
+                        target="_blank"
+                        rel="sponsored nofollow noopener"
+                        className="block rounded-full bg-brand-600 px-3 py-2 text-center text-xs font-semibold text-white transition-colors hover:bg-brand-700"
+                      >
+                        Vezi oferta
+                      </a>
+                    </div>
+                  )}
+                </div>
               ))}
             </div>
           )}
