@@ -1,6 +1,14 @@
 import OpenAI from "openai";
 import { promises as fs } from "fs";
 import path from "path";
+import { generateMagnificCover, type CoverStyle } from "@/lib/ai/magnificCover";
+
+// Stilul copertelor generate cu Magnific (vezi magnificCover.ts).
+const COVER_STYLE: CoverStyle = {
+  site: "Romanian health, natural remedies and personal care blog",
+  look: "Bright, clean, minimalist still life, green and white tones, warm natural light.",
+  avoid: "no people, no medicine packaging, nothing clinical or frightening"
+};
 
 let client: OpenAI | null = null;
 function getClient() {
@@ -19,6 +27,15 @@ function buildPrompt(title: string, category?: string | null) {
 
 /** Generează o imagine de copertă cu DALL·E 3 și o salvează persistent în public/uploads/articles. */
 export async function generateCoverImage(title: string, slug: string, category?: string | null): Promise<string> {
+  // Din 2026-11-17 coperțile se fac cu Magnific; OpenAI rămâne rezervă (cheie lipsă sau eroare Magnific).
+  if (process.env.MAGNIFIC_API_KEY) {
+    try {
+      return await generateMagnificCover(title, slug, category, COVER_STYLE);
+    } catch (error) {
+      console.error("Coperta cu Magnific a eșuat, încerc cu OpenAI:", error);
+    }
+  }
+
   const openai = getClient();
 
   // "medium" (nu "high") — coperțile de articol sunt ilustrative, nu au nevoie
