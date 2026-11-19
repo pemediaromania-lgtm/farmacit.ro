@@ -16,6 +16,8 @@ export interface ComparedOffer {
   currency: string | null;
   store: string;
   imageUrl: string | null;
+  /** Cum l-am găsit: același cod EAN (sigur același produs) sau doar același nume (poate fi altă ediție/variantă). */
+  match?: "ean" | "name";
 }
 
 export interface PriceComparison {
@@ -36,7 +38,7 @@ interface SourceProduct {
   gtin: string | null;
 }
 
-const select = { id: true, slug: true, name: true, price: true, oldPrice: true, currency: true, merchant: true, imageUrl: true, brand: true } as const;
+const select = { id: true, slug: true, name: true, price: true, oldPrice: true, currency: true, merchant: true, imageUrl: true, brand: true, gtin: true } as const;
 
 const STOPWORDS = new Set(["pentru", "care", "este", "sunt", "prin", "fara", "foarte", "set", "pachet", "buc", "bucati", "culoare", "model", "nou", "noua"]);
 
@@ -88,7 +90,7 @@ export async function getPriceComparison(product: SourceProduct): Promise<PriceC
   // Câte o ofertă pe magazin: cea mai ieftină.
   const seenStores = new Set<string>();
   const same = sameRows
-    .map(toOffer)
+    .map((r) => ({ ...toOffer(r), match: gtinVariants(r.gtin).some((g) => gtins.includes(g)) ? ("ean" as const) : ("name" as const) }))
     .filter((o) => (seenStores.has(o.store) ? false : (seenStores.add(o.store), true)))
     .slice(0, 6);
 

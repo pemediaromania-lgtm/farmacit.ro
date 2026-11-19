@@ -74,17 +74,21 @@ function Comparison({ product, data, headingClassName }: { product: Props["produ
   if (data.same.length > 0) {
     const rows = [
       { slug: product.slug, store: storeName(product.merchant), price: product.price!, oldPrice: product.oldPrice, current: true },
-      ...data.same.map((o) => ({ slug: o.slug, store: o.store, price: o.price, oldPrice: o.oldPrice, current: false })),
+      ...data.same.map((o) => ({ slug: o.slug, store: o.store, price: o.price, oldPrice: o.oldPrice, current: false, match: o.match })),
     ].sort((a, b) => a.price - b.price);
     const cheapest = rows[0].price;
     const saving = Math.max(...rows.map((r) => r.price)) - cheapest;
+    const byNameOnly = data.same.some((o) => o.match !== "ean");
     return (
       <section className="mt-10" aria-labelledby="compara-pret">
         <h2 id="compara-pret" className={headingClassName}>
           Compară prețul la {rows.length} magazine
         </h2>
         <p className="mt-1 text-sm text-stone-600">
-          Același produs, de la magazinele partenere.{saving >= 1 ? ` Diferența dintre cel mai mic și cel mai mare preț: ${formatPrice(saving, product.currency)}.` : ""}
+          {byNameOnly
+            ? "Același nume de produs, la magazinele partenere; verifică ediția sau varianta pe site-ul magazinului."
+            : "Același produs (același cod EAN), la magazinele partenere."}
+          {saving >= 1 ? ` Diferența dintre cel mai mic și cel mai mare preț: ${formatPrice(saving, product.currency)}.` : ""}
         </p>
         <ul className="mt-4 divide-y divide-stone-200 rounded-2xl border border-stone-200 bg-white">
           {rows.map((r) => (
@@ -92,7 +96,7 @@ function Comparison({ product, data, headingClassName }: { product: Props["produ
               <div className="min-w-0 flex-1">
                 <p className="font-semibold text-stone-900">{r.store}</p>
                 <p className="text-xs text-stone-600">
-                  {r.current ? "Produsul de pe această pagină" : "Același produs"}
+                  {"current" in r && r.current ? "Produsul de pe această pagină" : "match" in r && r.match === "ean" ? "Același produs (același cod EAN)" : "Același nume de produs"}
                   {Math.abs(r.price - cheapest) < 0.005 && <span className="ml-2 rounded-full bg-stone-900 px-2 py-0.5 font-semibold text-white">Cel mai mic preț</span>}
                 </p>
               </div>
