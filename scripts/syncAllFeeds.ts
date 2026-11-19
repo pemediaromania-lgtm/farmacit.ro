@@ -2,6 +2,8 @@ import "dotenv/config";
 import { prisma } from "@/lib/prisma";
 import { importFeed } from "@/lib/feed/importFeed";
 import { logActivity } from "@/lib/activityLog";
+import { recordPriceSnapshot } from "@/lib/prices/history";
+import { processPriceAlerts } from "@/lib/prices/alerts";
 import { finishSlugRepairs, repairMismatchedSlugs, type SlugRepair } from "@/lib/feed/repairMismatchedSlugs";
 
 /**
@@ -43,6 +45,15 @@ async function main() {
     } catch (error) {
       console.error("  Încheierea reparației a eșuat:", error);
     }
+  }
+
+  // Istoricul de preț și alertele „Anunță-mă când scade prețul” (lib/prices).
+  try {
+    const recorded = await recordPriceSnapshot();
+    const alerts = await processPriceAlerts();
+    console.log(`  Prețuri noi în istoric: ${recorded}; alerte de preț trimise: ${alerts.sent}${alerts.failed ? `, eșuate: ${alerts.failed}` : ""}`);
+  } catch (error) {
+    console.error("  Istoricul de preț a eșuat:", error);
   }
 
   await logActivity({

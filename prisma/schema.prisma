@@ -61,12 +61,15 @@ model Product {
   clickCount   Int       @default(0)
   articles     Article[]
   reviews      Review[]
+  pricePoints PricePoint[]
+  priceAlerts PriceAlert[]
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
   @@unique([feedId, externalId])
   @@index([category])
   @@index([categoryGroup])
+  @@index([gtin])
 }
 
 model Review {
@@ -147,4 +150,33 @@ model ProductSlugRedirect {
   fromSlug  String   @id
   toSlug    String
   createdAt DateTime @default(now())
+}
+
+// Istoricul de preț: un punct = „de la data asta, prețul a fost X” (lib/prices/history.ts).
+model PricePoint {
+  id         String   @id @default(cuid())
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  price      Float
+  oldPrice   Float?
+  recordedAt DateTime @default(now())
+
+  @@index([productId, recordedAt])
+}
+
+// Alertele „Anunță-mă când scade prețul” (lib/prices/alerts.ts): confirmate prin email, trimise o singură dată.
+model PriceAlert {
+  id             String    @id @default(cuid())
+  productId      String
+  product        Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  email          String
+  priceAtSignup  Float
+  token          String    @unique
+  confirmedAt    DateTime?
+  notifiedAt     DateTime?
+  unsubscribedAt DateTime?
+  createdAt      DateTime  @default(now())
+
+  @@unique([productId, email])
+  @@index([confirmedAt])
 }

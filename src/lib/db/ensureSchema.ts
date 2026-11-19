@@ -18,6 +18,34 @@ const STATEMENTS = [
   )`,
   // Produsul din caseta articolului e o alternativă (cel original nu mai e în feed) — caseta o spune deschis.
   `ALTER TABLE "Article" ADD COLUMN IF NOT EXISTS "productIsAlternative" BOOLEAN NOT NULL DEFAULT false`,
+  // Istoricul de preț și alertele de preț (2026-11-19) — aceleași instrucțiuni ca în migrația 20261119090000_price_tracking.
+  `CREATE TABLE IF NOT EXISTS "PricePoint" (
+    "id" TEXT NOT NULL,
+    "productId" TEXT NOT NULL,
+    "price" DOUBLE PRECISION NOT NULL,
+    "oldPrice" DOUBLE PRECISION,
+    "recordedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "PricePoint_pkey" PRIMARY KEY ("id"),
+    CONSTRAINT "PricePoint_productId_fkey" FOREIGN KEY ("productId") REFERENCES "Product"("id") ON DELETE CASCADE ON UPDATE CASCADE
+)`,
+  `CREATE INDEX IF NOT EXISTS "PricePoint_productId_recordedAt_idx" ON "PricePoint"("productId", "recordedAt")`,
+  `CREATE TABLE IF NOT EXISTS "PriceAlert" (
+    "id" TEXT NOT NULL,
+    "productId" TEXT NOT NULL,
+    "email" TEXT NOT NULL,
+    "priceAtSignup" DOUBLE PRECISION NOT NULL,
+    "token" TEXT NOT NULL,
+    "confirmedAt" TIMESTAMP(3),
+    "notifiedAt" TIMESTAMP(3),
+    "unsubscribedAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "PriceAlert_pkey" PRIMARY KEY ("id"),
+    CONSTRAINT "PriceAlert_productId_fkey" FOREIGN KEY ("productId") REFERENCES "Product"("id") ON DELETE CASCADE ON UPDATE CASCADE
+)`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS "PriceAlert_token_key" ON "PriceAlert"("token")`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS "PriceAlert_productId_email_key" ON "PriceAlert"("productId", "email")`,
+  `CREATE INDEX IF NOT EXISTS "PriceAlert_confirmedAt_idx" ON "PriceAlert"("confirmedAt")`,
+  `CREATE INDEX IF NOT EXISTS "Product_gtin_idx" ON "Product"("gtin")`,
 ];
 
 export async function ensureSchema(): Promise<void> {

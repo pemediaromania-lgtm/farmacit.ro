@@ -3,6 +3,8 @@ import { notFound, permanentRedirect, redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { isIndexableProduct } from "@/lib/seo/indexable";
+import { ProductPrices } from "@/components/prices/ProductPrices";
+import { aggregateOfferJsonLd, getPriceComparison } from "@/lib/prices/compare";
 import { deactivateInactiveMerchantProducts, isInactiveMerchant } from "@/lib/inactiveMerchants";
 import { replacementHref } from "@/lib/replacementProduct";
 import { ProductGallery } from "@/components/site/ProductGallery";
@@ -122,6 +124,9 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
 
   // Date structurate schema.org — folosesc toate atributele din feed disponibile
   // (gtin, brand, categorie, preț vechi, recenzii) pentru rich snippets în Google.
+  // Același produs la alți parteneri (lib/prices/compare, ținut 6 ore în memorie — secțiunea de prețuri îl refolosește).
+  const comparison = product.isActive && product.price != null ? await getPriceComparison(product).catch(() => null) : null;
+
   const productJsonLd = {
     "@context": "https://schema.org",
     "@type": "Product",
@@ -132,7 +137,8 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
     gtin: product.gtin ?? undefined,
     brand: product.brand ? { "@type": "Brand", name: product.brand } : undefined,
     category: product.category ?? undefined,
-    offers: {
+    // Cu același produs la mai multe magazine: intervalul de preț (AggregateOffer), ca la site-urile de comparare.
+    offers: aggregateOfferJsonLd(baseUrl, product, comparison?.same ?? []) ?? {
       "@type": "Offer",
       url: `${baseUrl}/produse/${product.slug}`,
       priceCurrency: product.currency,
@@ -298,6 +304,8 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
           <ApilandBanner />
         </div>
       )}
+
+      <ProductPrices product={product} headingClassName="text-xl font-bold text-brand-900" />
 
       {product.description && (
         <section className="mt-12">
